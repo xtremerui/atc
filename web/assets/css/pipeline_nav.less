@@ -10,80 +10,118 @@ html, body, #elm-app {
   height: 100%;
 }
 
-.nav-sidebar {
+.nav-radar {
   order: 1;
   width: 300px;
-  // padding: 10px;
   box-sizing: border-box;
 
   background: @base00;
 
-  .magic-search {
-    margin: 10px;
-
-    input {
-      width: 100%;
-      padding: 10px;
-      font-size: 20px;
-      font-family: monospace;
-      box-sizing: border-box;
-      background: @base02;
-      color: @base06;
-      border: 0;
-
-      &::-webkit-input-placeholder { color: @base04; }
-      &::-moz-placeholder { color: @base04; }
-      &:-ms-input-placeholder { color: @base04; }
-    }
-  }
-
   .event {
+    padding: 14px;
     color: #BDC3C7;
-    border-left-width: 20px;
-    border-left-style: solid;
-    position: relative;
-    margin-bottom: 2px;
-
-    &.build {
-      background: transparent;
-      border-left-color: @base02;
-    }
-
-    &.resource {
-      border-left-color: @base02;
-    }
+    border-bottom: 2px solid @base01;
 
     .event-header {
-      // border-top: 1px solid @base02;
-      padding: 10px;
-      padding-bottom: 0;
+      color: @base03;
       font-weight: normal;
-      margin-top: 0;
-      margin-bottom: 10px;
+      font-size: 14px;
+      line-height: 14px;
 
-      a {
+      .hl {
         color: #E0E0E0;
       }
 
-      i {
-        // margin-right: 7px;
-        // margin-left: -24px;
-        position: absolute;
-        top: 50%;
-        margin-top: -8px;
-        left: -16px;
-        // color: white;
-        // display: none;
-        // float: right;
+      .build {
+        float: right;
       }
     }
 
-    .event-body {
-      padding: 10px;
-      padding-top: 0;
+    .progress {
+      margin-top: 24px;
+      background: @base02;
+      height: 2px;
+      width: 100%;
+      position: relative;
 
-      .dict-key {
-        text-align: left;
+      .fixed-duration {
+        z-index: 101;
+        font-size: 12px;
+        font-style: italic;
+        position: absolute;
+        top: -20px;
+      }
+
+      .fg {
+        height: 100%;
+        position: relative;
+
+        .glyph {
+          position: absolute;
+          font-size: 16px;
+          top: -7px;
+          right: -8px;
+          background: @base00;
+          width: 14px;
+          line-height: 16px;
+          text-align: center;
+          z-index: 100;
+
+          .embedded-duration {
+            z-index: 101;
+            font-size: 12px;
+            font-style: italic;
+            position: absolute;
+            left: -2px;
+            top: -14px;
+            color: @base04;
+          }
+        }
+      }
+
+      .over {
+        background: repeating-linear-gradient(-90deg, @base02, @base02 2px, transparent 2px, transparent 4px);
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 100%;
+      }
+    }
+
+    &.failed {
+      background: transparent;
+
+      .event-header .build {
+        color: @base08;
+      }
+
+      .progress .fg {
+        background: @base08;
+
+        .glyph {
+          color: @base08;
+        }
+      }
+    }
+
+    &.started {
+      background: transparent;
+
+      .event-header .build {
+        color: @base0A;
+      }
+
+      .progress .fg {
+        background: @base0A;
+
+        .glyph {
+          color: @base0A;
+
+          i {
+            font-size: 15px;
+            transform: rotate(45deg);
+          }
+        }
       }
     }
   }

@@ -2,7 +2,7 @@ module Navigation exposing (..)
 
 import Html exposing (Html)
 import Html.App
-import Html.Attributes exposing (action, class, classList, href, id, method, title, disabled, attribute)
+import Html.Attributes exposing (action, class, classList, href, id, method, style, title, disabled, attribute)
 import Http
 import Task
 
@@ -53,415 +53,75 @@ update subUpdate action model =
 view : (subModel -> Html subAction) -> Model subModel -> Html (Action subAction)
 view subView model =
   Html.div [class "nav-page"] [
-    Html.nav [class "nav-sidebar"] [
-      Html.form [class "magic-search"] [
-        Html.input [Html.Attributes.type' "text", Html.Attributes.placeholder "filter…"] []
-      ],
-
-      case model.currentState.job of
-        Nothing ->
-          Html.text "i aint got NOOOO nav for you, boy"
-
-        Just job ->
-          Html.div [class "events"] [
-            -- Html.div [class "event pipeline"] [
-            --   Html.a [href Concourse.Pipeline.urlAll] [
-            --     Html.text "pipelines"
-            --   ]
-            -- ],
-            -- Html.div [class "event job"] [
-            --   Html.a [href (Concourse.Pipeline.url job.pipelineName)] [
-            --     Html.text job.pipelineName
-            --   ]
-            -- ],
-            Html.div [class "event build started"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag started"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event resource"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-cube"] [],
-
-                Html.a [href "google.com"] [
-                  Html.text "concourse"
-                ]
-              ],
-              Html.div [class "event-body resource-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "ref"],
-                    Html.td [class "dict-value"] [Html.text "0fd4d2a444584fdb949fc99548a7bda604c9e368"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build failed"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag failed"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "failed"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event resource"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-cube"] [],
-
-                Html.a [href "google.com"] [
-                  Html.text "concourse"
-                ]
-              ],
-              Html.div [class "event-body resource-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "version"],
-                    Html.td [class "dict-value"] [Html.text "1.2.0"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event resource"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-cube"] [],
-
-                Html.a [href "google.com"] [
-                  Html.text "concourse"
-                ]
-              ],
-              Html.div [class "event-body resource-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "ref"],
-                    Html.td [class "dict-value"] [Html.text "0fd4d2a444584fdb949fc99548a7bda604c9e368"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event resource"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-cube"] [],
-
-                Html.a [href "google.com"] [
-                  Html.text "concourse"
-                ]
-              ],
-              Html.div [class "event-body resource-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "ref"],
-                    Html.td [class "dict-value"] [Html.text "0fd4d2a444584fdb949fc99548a7bda604c9e368"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event resource"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-cube"] [],
-
-                Html.a [href "google.com"] [
-                  Html.text "concourse"
-                ]
-              ],
-              Html.div [class "event-body resource-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "ref"],
-                    Html.td [class "dict-value"] [Html.text "0fd4d2a444584fdb949fc99548a7bda604c9e368"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build succeeded"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag succeeded"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "succeeded"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ],
-            Html.div [class "event build aborted"] [
-              Html.h3 [class "event-header"] [
-                Html.i [class "fa fa-hashtag aborted"] [],
-
-                Html.a [href (Concourse.Job.url job)] [
-                  Html.text (job.name ++ " #23")
-                ]
-              ],
-              Html.div [class "event-body build-info"] [
-                Html.table [class "dictionary"] [
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "started"],
-                    Html.td [class "dict-value"] [Html.text "5 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "aborted"],
-                    Html.td [class "dict-value"] [Html.text "9 minutes ago"]
-                  ],
-                  Html.tr [] [
-                    Html.td [class "dict-key"] [Html.text "duration"],
-                    Html.td [class "dict-value"] [Html.text "4 minutes"]
-                  ]
-                ]
-              ]
-            ]
-          ]
-    ],
-
     Html.div [class "nav-content"] [
       Html.App.map SubAction (subView model.subModel)
+    ],
+
+    Html.div [class "nav-radar"] [
+      failedBuild 1,
+      failedBuild 8,
+      failedBuild 54,
+      failedBuild 99,
+      failedBuild 182,
+      startedBuild 34,
+      startedBuild 68,
+      startedBuild 96,
+      startedBuild 110
     ]
   ]
+
+failedBuild : Int -> Html (Action subAction)
+failedBuild =
+  buildEvent "failed"
+
+startedBuild : Int -> Html (Action subAction)
+startedBuild =
+  buildEvent "started"
+
+buildEvent : String -> Int -> Html (Action subAction)
+buildEvent status pct =
+  Html.div [
+    classList [
+      ("event", True),
+      ("build", True),
+      (status, True)
+    ]
+  ] [
+    Html.div [class "event-header"] [
+      Html.span [class "build"] [Html.text "#306"],
+      Html.span [class "hl"] [Html.text "main"],
+      Html.text "/",
+      Html.span [class "hl"] [Html.text "testflight"]
+    ],
+
+    Html.div [class "progress"] [
+      Html.span [class "fixed-duration"] [Html.text (toString (round <| 15 * (toFloat pct / 100.0)) ++ "m")],
+
+      Html.div [class "fg", style [("width", toString (min pct 100) ++ "%")]] [
+        Html.span [class "glyph"] [
+          -- Html.span [class "embedded-duration"] [Html.text (toString (round <| 15 * (toFloat pct / 100.0)) ++ "m")],
+          Html.i [class ("fa " ++ iconForStatus status)] []
+        ]
+      ],
+
+      if pct > 100 then
+        Html.div [class "over", style [("width", toString (pct - 100) ++ "%")]] []
+      else
+        Html.div [class "not-over-lol"] []
+    ]
+  ]
+
+iconForStatus : String -> String
+iconForStatus status =
+  case status of
+    "failed" ->
+      "fa-close"
+
+    "started" ->
+      "fa-plane"
+
+    _ ->
+      "fa-beer"
 
 fetchPipelines : Cmd (Action subAction)
 fetchPipelines =
