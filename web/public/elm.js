@@ -6739,6 +6739,10 @@ var _elm_lang$html$Html_App$beginnerProgram = function (_p1) {
 };
 var _elm_lang$html$Html_App$map = _elm_lang$virtual_dom$VirtualDom$map;
 
+var _elm_lang$html$Html_Lazy$lazy3 = _elm_lang$virtual_dom$VirtualDom$lazy3;
+var _elm_lang$html$Html_Lazy$lazy2 = _elm_lang$virtual_dom$VirtualDom$lazy2;
+var _elm_lang$html$Html_Lazy$lazy = _elm_lang$virtual_dom$VirtualDom$lazy;
+
 var _elm_lang$core$Task$onError = _elm_lang$core$Native_Scheduler.onError;
 var _elm_lang$core$Task$andThen = _elm_lang$core$Native_Scheduler.andThen;
 var _elm_lang$core$Task$spawnCmd = F2(
@@ -7449,9 +7453,14 @@ var _concourse$atc$Autoscroll$update = F3(
 var _concourse$atc$Autoscroll$view = F2(
 	function (subView, model) {
 		return A2(
-			_elm_lang$html$Html_App$map,
-			_concourse$atc$Autoscroll$SubAction,
-			subView(model.subModel));
+			_elm_lang$html$Html_Lazy$lazy,
+			function (_p5) {
+				return A2(
+					_elm_lang$html$Html_App$map,
+					_concourse$atc$Autoscroll$SubAction,
+					subView(_p5));
+			},
+			model.subModel);
 	});
 
 //import Result //
@@ -8304,10 +8313,6 @@ var _elm_lang$html$Html_Events$Options = F2(
 	function (a, b) {
 		return {stopPropagation: a, preventDefault: b};
 	});
-
-var _elm_lang$html$Html_Lazy$lazy3 = _elm_lang$virtual_dom$VirtualDom$lazy3;
-var _elm_lang$html$Html_Lazy$lazy2 = _elm_lang$virtual_dom$VirtualDom$lazy2;
-var _elm_lang$html$Html_Lazy$lazy = _elm_lang$virtual_dom$VirtualDom$lazy;
 
 //import Dict, List, Maybe, Native.Scheduler //
 
@@ -15016,35 +15021,67 @@ var _concourse$atc$Build$init = function (flags) {
 		model);
 };
 
-var _concourse$atc$Concourse_Pipeline$urlJobs = function (pipelineName) {
+var _concourse$atc$Concourse_Pipeline$urlJobs = function (_p0) {
+	var _p1 = _p0;
 	return A2(
 		_elm_lang$core$Basics_ops['++'],
-		'/pipelines/',
-		A2(_elm_lang$core$Basics_ops['++'], pipelineName, '/jobs'));
+		'/teams/',
+		A2(
+			_elm_lang$core$Basics_ops['++'],
+			_p1.teamName,
+			A2(
+				_elm_lang$core$Basics_ops['++'],
+				'/pipelines/',
+				A2(_elm_lang$core$Basics_ops['++'], _p1.name, '/jobs'))));
 };
-var _concourse$atc$Concourse_Pipeline$urlAll = '/pipelines';
-var _concourse$atc$Concourse_Pipeline$url = function (pipelineName) {
-	return A2(_elm_lang$core$Basics_ops['++'], '/pipelines/', pipelineName);
+var _concourse$atc$Concourse_Pipeline$urlAll = function (teamName) {
+	return A2(
+		_elm_lang$core$Basics_ops['++'],
+		'/teams/',
+		A2(_elm_lang$core$Basics_ops['++'], teamName, '/pipelines'));
 };
-var _concourse$atc$Concourse_Pipeline$Pipeline = F2(
-	function (a, b) {
-		return {name: a, paused: b};
+var _concourse$atc$Concourse_Pipeline$url = function (_p2) {
+	var _p3 = _p2;
+	return A2(
+		_elm_lang$core$Basics_ops['++'],
+		'/teams/',
+		A2(
+			_elm_lang$core$Basics_ops['++'],
+			_p3.teamName,
+			A2(_elm_lang$core$Basics_ops['++'], '/pipelines/', _p3.name)));
+};
+var _concourse$atc$Concourse_Pipeline$Pipeline = F3(
+	function (a, b, c) {
+		return {name: a, teamName: b, paused: c};
 	});
-var _concourse$atc$Concourse_Pipeline$decode = A3(
-	_elm_lang$core$Json_Decode$object2,
+var _concourse$atc$Concourse_Pipeline$decode = A4(
+	_elm_lang$core$Json_Decode$object3,
 	_concourse$atc$Concourse_Pipeline$Pipeline,
 	A2(_elm_lang$core$Json_Decode_ops[':='], 'name', _elm_lang$core$Json_Decode$string),
+	A2(_elm_lang$core$Json_Decode_ops[':='], 'team_name', _elm_lang$core$Json_Decode$string),
 	A2(_elm_lang$core$Json_Decode_ops[':='], 'paused', _elm_lang$core$Json_Decode$bool));
-var _concourse$atc$Concourse_Pipeline$fetch = function (pipelineName) {
+var _concourse$atc$Concourse_Pipeline$fetch = F2(
+	function (teamName, pipelineName) {
+		return A2(
+			_evancz$elm_http$Http$get,
+			_concourse$atc$Concourse_Pipeline$decode,
+			A2(
+				_elm_lang$core$Basics_ops['++'],
+				'/api/v1/teams/',
+				A2(
+					_elm_lang$core$Basics_ops['++'],
+					teamName,
+					A2(_elm_lang$core$Basics_ops['++'], '/pipelines/', pipelineName))));
+	});
+var _concourse$atc$Concourse_Pipeline$fetchAll = function (teamName) {
 	return A2(
 		_evancz$elm_http$Http$get,
-		_concourse$atc$Concourse_Pipeline$decode,
-		A2(_elm_lang$core$Basics_ops['++'], '/api/v1/pipelines/', pipelineName));
+		_elm_lang$core$Json_Decode$list(_concourse$atc$Concourse_Pipeline$decode),
+		A2(
+			_elm_lang$core$Basics_ops['++'],
+			'/api/v1/teams/',
+			A2(_elm_lang$core$Basics_ops['++'], teamName, '/pipelines')));
 };
-var _concourse$atc$Concourse_Pipeline$fetchAll = A2(
-	_evancz$elm_http$Http$get,
-	_elm_lang$core$Json_Decode$list(_concourse$atc$Concourse_Pipeline$decode),
-	'/api/v1/pipelines');
 
 var _concourse$atc$Navigation$CurrentState = function (a) {
 	return {job: a};
@@ -15061,7 +15098,8 @@ var _concourse$atc$Navigation$fetchPipelines = function (_p0) {
 		_elm_lang$core$Platform_Cmd$map,
 		_concourse$atc$Navigation$PipelinesFetched,
 		A3(_elm_lang$core$Task$perform, _elm_lang$core$Result$Err, _elm_lang$core$Result$Ok, _p0));
-}(_concourse$atc$Concourse_Pipeline$fetchAll);
+}(
+	_concourse$atc$Concourse_Pipeline$fetchAll('main'));
 var _concourse$atc$Navigation$SubAction = function (a) {
 	return {ctor: 'SubAction', _0: a};
 };
@@ -15308,8 +15346,7 @@ var _concourse$atc$Navigation$view = F2(
 															_elm_lang$html$Html$a,
 															_elm_lang$core$Native_List.fromArray(
 																[
-																	_elm_lang$html$Html_Attributes$href(
-																	_concourse$atc$Concourse_Pipeline$urlJobs(_p6.pipelineName))
+																	_elm_lang$html$Html_Attributes$href('google.com')
 																]),
 															_elm_lang$core$Native_List.fromArray(
 																[
@@ -15527,8 +15564,7 @@ var _concourse$atc$Navigation$view = F2(
 															_elm_lang$html$Html$a,
 															_elm_lang$core$Native_List.fromArray(
 																[
-																	_elm_lang$html$Html_Attributes$href(
-																	_concourse$atc$Concourse_Pipeline$urlJobs(_p6.pipelineName))
+																	_elm_lang$html$Html_Attributes$href('google.com')
 																]),
 															_elm_lang$core$Native_List.fromArray(
 																[
@@ -15746,8 +15782,7 @@ var _concourse$atc$Navigation$view = F2(
 															_elm_lang$html$Html$a,
 															_elm_lang$core$Native_List.fromArray(
 																[
-																	_elm_lang$html$Html_Attributes$href(
-																	_concourse$atc$Concourse_Pipeline$urlJobs(_p6.pipelineName))
+																	_elm_lang$html$Html_Attributes$href('google.com')
 																]),
 															_elm_lang$core$Native_List.fromArray(
 																[
@@ -15965,8 +16000,7 @@ var _concourse$atc$Navigation$view = F2(
 															_elm_lang$html$Html$a,
 															_elm_lang$core$Native_List.fromArray(
 																[
-																	_elm_lang$html$Html_Attributes$href(
-																	_concourse$atc$Concourse_Pipeline$urlJobs(_p6.pipelineName))
+																	_elm_lang$html$Html_Attributes$href('google.com')
 																]),
 															_elm_lang$core$Native_List.fromArray(
 																[
@@ -16184,8 +16218,7 @@ var _concourse$atc$Navigation$view = F2(
 															_elm_lang$html$Html$a,
 															_elm_lang$core$Native_List.fromArray(
 																[
-																	_elm_lang$html$Html_Attributes$href(
-																	_concourse$atc$Concourse_Pipeline$urlJobs(_p6.pipelineName))
+																	_elm_lang$html$Html_Attributes$href('google.com')
 																]),
 															_elm_lang$core$Native_List.fromArray(
 																[
