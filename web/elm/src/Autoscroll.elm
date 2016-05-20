@@ -2,6 +2,7 @@ module Autoscroll exposing (..)
 
 import Html exposing (Html)
 import Html.App
+import Html.Lazy
 import Task
 
 import Scroll
@@ -51,8 +52,11 @@ update subUpdate action model =
       ( { model
         | shouldScroll =
             case model.scrollBehaviorFunc model.subModel of
-              Autoscroll -> (num < 16)
-              _ -> False
+              Autoscroll ->
+                num < 16
+
+              _ ->
+                False
         }
       , Cmd.none
       )
@@ -60,7 +64,7 @@ update subUpdate action model =
 
 view : (subModel -> Html subAction) -> Model subModel -> Html (Action subAction)
 view subView model =
-  Html.App.map SubAction (subView model.subModel)
+  Html.Lazy.lazy (Html.App.map SubAction << subView) model.subModel
 
 scrollToBottom : Cmd (Action x)
 scrollToBottom =
