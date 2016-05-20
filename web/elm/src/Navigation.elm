@@ -99,7 +99,7 @@ view subView model =
               Html.h3 [class "event-header"] [
                 Html.i [class "fa fa-cube"] [],
 
-                Html.a [href (Concourse.Pipeline.urlJobs job.pipelineName)] [
+                Html.a [href "google.com"] [
                   Html.text "concourse"
                 ]
               ],
@@ -141,7 +141,7 @@ view subView model =
               Html.h3 [class "event-header"] [
                 Html.i [class "fa fa-cube"] [],
 
-                Html.a [href (Concourse.Pipeline.urlJobs job.pipelineName)] [
+                Html.a [href "google.com"] [
                   Html.text "concourse"
                 ]
               ],
@@ -183,7 +183,7 @@ view subView model =
               Html.h3 [class "event-header"] [
                 Html.i [class "fa fa-cube"] [],
 
-                Html.a [href (Concourse.Pipeline.urlJobs job.pipelineName)] [
+                Html.a [href "google.com"] [
                   Html.text "concourse"
                 ]
               ],
@@ -225,7 +225,7 @@ view subView model =
               Html.h3 [class "event-header"] [
                 Html.i [class "fa fa-cube"] [],
 
-                Html.a [href (Concourse.Pipeline.urlJobs job.pipelineName)] [
+                Html.a [href "google.com"] [
                   Html.text "concourse"
                 ]
               ],
@@ -267,7 +267,7 @@ view subView model =
               Html.h3 [class "event-header"] [
                 Html.i [class "fa fa-cube"] [],
 
-                Html.a [href (Concourse.Pipeline.urlJobs job.pipelineName)] [
+                Html.a [href "google.com"] [
                   Html.text "concourse"
                 ]
               ],
@@ -466,4 +466,4 @@ view subView model =
 fetchPipelines : Cmd (Action subAction)
 fetchPipelines =
   Cmd.map PipelinesFetched << Task.perform Err Ok <|
-    Concourse.Pipeline.fetchAll
+    Concourse.Pipeline.fetchAll "main"
