@@ -1,132 +1,243 @@
 @import (reference) "_vars.less";
 
-@sidebarWidth: 300px;
-
-
-.pipelinesNav-enabled #pipeline {
-  left: 0;
-}
-
-.pipelinesNav-visible #pipeline {
-  left: @sidebarWidth + 5px;
-}
-
-
-.pipelinesNav-enabled .build-actions {
-  margin-right: 5px;
-
-}
-
-.pipelinesNav-visible .build-actions {
-  margin-right:  @sidebarWidth + 5px;
-
-}
-
-
-
-.pipelinesNav-enabled #pipeline .legend {
-  left: 1em;
-}
-
-.pipelinesNav-visible #pipeline .legend {
-  left:  @sidebarWidth + 5px;
-}
-
-
-
-.pipelinesNav-enabled #content{
-  margin-left: 0;
-}
-
-.pipelinesNav-visible #content{
-  margin-left: @sidebarWidth;
-}
-
-
-
-.pipelinesNav-enabled .pipelines {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
+html, body, #elm-app {
   height: 100%;
-
-  width: @sidebarWidth;
-  background: @base00;
-
-  overflow: auto;
 }
 
-.pipelinesNav-visible .pipelines {
-  visibility: visible;
-  -webkit-transform: translateX(0);
-  transform: translateX(0);
-
-
+.nav-page {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
 }
 
-.pipelinesNav-enabled .pipelines li {
-  position: relative;
-  padding: 0;
-  margin: 0;
-  text-align: right;
-  background: @base00;
-  border-bottom: 1px solid @base02;
-  line-height: 28px;
+.nav-sidebar {
+  order: 1;
+  width: 300px;
+  // padding: 10px;
+  box-sizing: border-box;
 
-  &:hover {
+  background: @base00;
+
+  .magic-search {
+    margin: 10px;
+
+    input {
+      width: 100%;
+      padding: 10px;
+      font-size: 20px;
+      font-family: monospace;
+      box-sizing: border-box;
+      background: @base02;
+      color: @base06;
+      border: 0;
+
+      &::-webkit-input-placeholder { color: @base04; }
+      &::-moz-placeholder { color: @base04; }
+      &:-ms-input-placeholder { color: @base04; }
+    }
+  }
+
+  .event {
+    color: #BDC3C7;
+    border-left-width: 20px;
+    border-left-style: solid;
+    position: relative;
+    margin-bottom: 2px;
+
+    &.build {
+      background: transparent;
+      border-left-color: @base02;
+    }
+
+    &.resource {
+      border-left-color: @base02;
+    }
+
+    .event-header {
+      // border-top: 1px solid @base02;
+      padding: 10px;
+      padding-bottom: 0;
+      font-weight: normal;
+      margin-top: 0;
+      margin-bottom: 10px;
+
+      a {
+        color: #E0E0E0;
+      }
+
+      i {
+        // margin-right: 7px;
+        // margin-left: -24px;
+        position: absolute;
+        top: 50%;
+        margin-top: -8px;
+        left: -16px;
+        // color: white;
+        // display: none;
+        // float: right;
+      }
+    }
+
+    .event-body {
+      padding: 10px;
+      padding-top: 0;
+
+      .dict-key {
+        text-align: left;
+      }
+    }
+  }
+}
+
+.nav-content {
+  order: 0;
+  flex-grow: 1;
+}
+
+.breadcrumb {
+  background: @base03;
+
+  .crumb {
+    color: @base06;
+    font-size: 18px;
+    display: inline-block;
     background: @base01;
+    text-decoration: none;
+    position: relative;
+    padding: 0 15px 0 5px;
+    margin-right: 23px;
+    height: 40px;
+    line-height: 40px;
+
+    a {
+      height: 40px;
+      line-height: 40px;
+      display: inline-block;
+    }
+
+    &.tier1 {
+      background-color: @base00;
+
+      &:before {
+        border-color: @base00;
+        border-left-color: transparent;
+      }
+
+      &:after {
+        border-left-color: @base00;
+        background: @base02;
+      }
+    }
+
+    &.tier2 {
+      background-color: @base01;
+
+      &:before {
+        border-color: @base01;
+        border-left-color: transparent;
+      }
+
+      &:after {
+        border-left-color: @base01;
+        background: @base03;
+      }
+    }
+
+    &.tier3 {
+      background-color: @base02;
+
+      &:before {
+        border-color: @base02;
+        border-left-color: transparent;
+      }
+
+      &:after {
+        border-left-color: @base02;
+        background: @base04;
+      }
+    }
+
+    &.tier4 {
+      background-color: @base03;
+
+      &:before {
+        border-color: @base03;
+        border-left-color: transparent;
+      }
+
+      &:after {
+        border-left-color: @base03;
+        background: @base05;
+      }
+    }
+
+    &.label {
+      // margin-left: -2px;
+
+      a {
+        color: @base04;
+      }
+    }
+
+    &:first-child {
+      padding-left: 15px;
+      margin-left: 0;
+
+      &:before {
+        border: none;
+      }
+    }
+
+    &:last-child:after {
+      border: none;
+    }
+
+    &:before,
+    &:after {
+      content: "";
+      position: absolute;
+      top: 0;
+      border: 0 solid @base01;
+      border-width: 20px 10px;
+      width: 0;
+      height: 0;
+    }
+
+    &:before {
+      left: -20px;
+      border-left-color: transparent;
+    }
+
+    &:after {
+      left: 100%;
+      border-color: transparent;
+      border-left-color: @base01;
+    }
+
+    // &:hover {
+    //   background-color: @base03;
+
+    //   &:before {
+    //     border-color: @base03;
+    //     border-left-color: transparent;
+    //   }
+
+    //   &:after {
+    //     border-left-color: @base03;
+    //   }
+    // }
+
+    // &:active {
+    //   background-color: @base02;
+
+    //   &:before {
+    //     border-color: @base02;
+    //     border-left-color: transparent;
+    //   }
+
+    //   &:after {
+    //     border-left-color: @base02;
+    //   }
+    // }
   }
-
-  & a {
-    display: block;
-    padding-right: 10px;
-    // right-padding - pause button width - left padding
-    width: @sidebarWidth - 10px - 28px - 5px;
-    float: right;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-
-  span.fl {
-    position: absolute;
-    top: 0px;
-    left: 0px;
-  }
-}
-
-.nav-container {
-  /* this is the 3D navigation container */
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-
-  margin-top: 40px;
-
-  width: @sidebarWidth;
-  background-color: @base00;
-
-  -webkit-transform: translateX(-@sidebarWidth);
-  transform: translateX(-@sidebarWidth);
-
-
-}
-
-.pipelinesNav-visible .nav-container {
-  visibility: visible;
-
-  -webkit-transform: translateX(0);
-  transform: translateX(0);
-
-}
-
-.pipelinesNav-visible .pipelines {
-  background-color: @base00;
-}
-
-.pipelinesNav-visible .pipelines::after {
-  /* menu cover layer - hide it when navigation is visible */
-  opacity: 0;
-  visibility: hidden;
 }

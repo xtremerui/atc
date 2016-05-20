@@ -29,8 +29,19 @@ function drawContinuously(svg, groups) {
 
     var graph = createGraph(svg, groups, jobs, resources);
 
+    graph.collectGroups();
+
+    var nodes = graph.nodes();
+    nodes.forEach(function(node) {
+      if (node.class.indexOf("job") === -1) {
+        console.log(node);
+        graph.removeNode(node.id);
+      }
+    });
+
     svg.selectAll("g.edge").remove();
     svg.selectAll("g.node").remove();
+    svg.selectAll("g.mininode").remove();
 
     var svgEdges = svg.selectAll("g.edge")
       .data(graph.edges());
@@ -40,7 +51,11 @@ function drawContinuously(svg, groups) {
     var svgNodes = svg.selectAll("g.node")
       .data(graph.nodes());
 
+    var svgMiniNodes = svg.selectAll("g.mininode")
+      .data(graph.nodes());
+
     svgNodes.exit().remove();
+    svgMiniNodes.exit().remove();
 
     var svgEdge = svgEdges.enter().append("g")
       .attr("class", function(edge) { return "edge " + edge.source.node.status })
@@ -225,6 +240,17 @@ function drawContinuously(svg, groups) {
       $(".animation").addClass("animation-xlarge");
     }
 
+    var miniScaleFactor = 20;
+    var svgMiniNode = svgMiniNodes.enter().append("g")
+      .attr("class", function(node) { return "node mininode " + node.class })
+      .append("rect")
+      .attr("height", function(node) { return node.height() / miniScaleFactor })
+      .attr("width", function(node) { return node.width() / miniScaleFactor })
+      .attr("transform", function(node) {
+        var position = node.position();
+        return "translate("+(position.x / miniScaleFactor + 20)+", "+(position.y / miniScaleFactor + 320)+")"
+      })
+
 
     if (currentHighlight) {
       svgNodes.each(function(node) {
@@ -264,7 +290,7 @@ function renderPipeline(groups) {
     var ev = d3.event;
     if (ev.button || ev.ctrlKey)
       ev.stopImmediatePropagation();
-  }).call(d3.behavior.zoom().scaleExtent([0.5, 10]).on("zoom", function() {
+  }).call(d3.behavior.zoom().on("zoom", function() {
     var ev = d3.event;
     g.attr("transform", "translate(" + ev.translate + ") scale(" + ev.scale + ")");
   }));
@@ -274,7 +300,7 @@ function renderPipeline(groups) {
   $("ul.groups li:not(.main) a").click(function(e) {
     var group = e.target.text;
 
-    if (e.shiftKey) {
+    if (true || e.shiftKey) {
       groups[group] = !groups[group];
     } else {
       for (var name in groups) {

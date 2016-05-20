@@ -18,13 +18,6 @@
 .build-step.first-occurrence .header { background: @base0G; }
 .groups li.active a { background: @base0G; }
 
-.legend dt.pending { background: @base04; }
-.legend dt.started { background: @base0A; }
-.legend dt.succeeded { background: @base0B; }
-.legend dt.failed { background: @base08; }
-.legend dt.errored { background: @base09; }
-.legend dt.aborted { background: @base0F; }
-
 .build-action { background-color: transparent; }
 .build-action i { color: @base07; }
 .build-action i:hover { background: @base02; }
@@ -36,25 +29,23 @@
 .build-action-abort i:active { color: @base07; background: @base0F; }
 .build-action-abort i:focus { background: @base0F; }
 
-.build-step i.failed    { color: @base07; background: @base08; }
-.build-step i.succeeded { color: @base07; background: @base0B; }
-.build-step i.errored   { color: @base07; background: @base09; }
+.no-builds { background: @base03; border-color: @base03; }
+.pending   { background: @base04; border-color: @base04; }
+.succeeded { background: @base0B; border-color: @base0B; }
+.failed    { background: @base08; border-color: @base08; }
+.errored   { background: @base09; border-color: @base09; }
+.aborted   { background: @base0F; border-color: @base0F; }
+.started   { background: @base0A; border-color: @base0A; }
+.paused    { background: @base0D; border-color: @base0D; }
 
-.no-builds { background: @base03; }
-.pending { background: @base04; }
-.succeeded { background: @base0B; }
-.failed { background: @base08; }
-.errored { background: @base09; }
-.aborted { background: @base0F; }
-.started { background: @base0A; }
-.paused { background: @base0D; }
-
-.build-step .header i.pending { color: @base04; background: transparent; }
-.build-step .header i.started { color: @base0A; background: transparent; }
-.build-step .header i.succeeded { color: @base0B; background: transparent; }
-.build-step .header i.failed { color: @base08; background: transparent; }
-.build-step .header i.errored { color: @base09; background: transparent; }
-.build-step .header i.aborted { color: @base0F; background: transparent; }
+i.no-builds { color: @base03; background: transparent; }
+i.pending   { color: @base04; background: transparent; }
+i.succeeded { color: @base0B; background: transparent; }
+i.failed    { color: @base08; background: transparent; }
+i.errored   { color: @base09; background: transparent; }
+i.aborted   { color: @base0F; background: transparent; }
+i.started   { color: @base0A; background: transparent; }
+i.paused    { color: @base0D; background: transparent; }
 
 .fail-triangle {
   stroke: @base01;

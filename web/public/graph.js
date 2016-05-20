@@ -1,11 +1,15 @@
 var KEY_HEIGHT = 20;
 var KEY_SPACING = 10;
-var RANK_GROUP_SPACING = 50;
+var RANK_GROUP_SPACING = 20;
 var NODE_PADDING = 5;
+var RANK_GROUP_HEIGHT = 300;
+var RANK_GROUP_WIDTH = 100;
 
 function Graph() {
   this._nodes = {};
   this._edges = [];
+
+  this._rankGroups = [];
 };
 
 Graph.prototype.setNode = function(id, value) {
@@ -111,35 +115,35 @@ Graph.prototype.edges = function() {
   return this._edges;
 };
 
-Graph.prototype.layout = function() {
-  var rankGroups = [];
-
+Graph.prototype.collectGroups = function() {
   for (var i in this._nodes) {
     var node = this._nodes[i];
 
     var rankGroupIdx = node.rank();
-    var rankGroup = rankGroups[rankGroupIdx];
+    var rankGroup = this._rankGroups[rankGroupIdx];
     if (!rankGroup) {
       rankGroup = new RankGroup(rankGroupIdx);
-      rankGroups[rankGroupIdx] = rankGroup;
+      this._rankGroups[rankGroupIdx] = rankGroup;
     }
 
-    rankGroup.nodes.push(node);
+    rankGroup.addNode(node);
   }
+};
 
+Graph.prototype.layout = function() {
   for (var i in this._nodes) {
     var node = this._nodes[i];
 
     var rankGroup = node.rank();
 
     var rankGroupOffset = 0;
-    for (var c in rankGroups) {
+    for (var c in this._rankGroups) {
       if (c < rankGroup) {
-        rankGroupOffset += rankGroups[c].width() + RANK_GROUP_SPACING;
+        rankGroupOffset += this._rankGroups[c].width() + RANK_GROUP_SPACING;
       }
     }
 
-    node._position.x = rankGroupOffset + ((rankGroups[rankGroup].width() - node.width()) / 2);
+    node._position.x = rankGroupOffset + ((this._rankGroups[rankGroup].width() - node.width()) / 2);
 
     node._edgeKeys.sort(function(a, b) {
       var targetA = node._edgeTargets[a];
@@ -175,9 +179,9 @@ Graph.prototype.layout = function() {
   // first pass: initial rough sorting and layout
   // second pass: detangle now that we know downstream positioning
   for (var repeat = 0; repeat < 2; repeat++) {
-    for (var c in rankGroups) {
-      rankGroups[c].sortNodes();
-      rankGroups[c].layout();
+    for (var c in this._rankGroups) {
+      this._rankGroups[c].sortNodes();
+      this._rankGroups[c].layout();
     }
   }
 
@@ -185,8 +189,8 @@ Graph.prototype.layout = function() {
     var anyChanged = true;
     while (anyChanged) {
       anyChanged = false;
-      for (var c in rankGroups) {
-        if (rankGroups[c].tug()) {
+      for (var c in this._rankGroups) {
+        if (this._rankGroups[c].tug()) {
           anyChanged = true;
         }
       }
@@ -398,6 +402,21 @@ function RankGroup(idx) {
   this.ordering = new Ordering();
 }
 
+RankGroup.prototype.addNode = function(node) {
+  node.rankGroup = this;
+  this.nodes.push(node);
+}
+
+RankGroup.prototype.totalEdgeKeys = function(node) {
+  var total = 0;
+
+  for (var i in this.nodes) {
+    total += this.nodes[i]._edgeKeys.length;
+  }
+
+  return total;
+}
+
 RankGroup.prototype.sortNodes = function() {
   var nodes = this.nodes;
 
@@ -605,7 +624,8 @@ Node.prototype.width = function() {
     var textNode = svgNode.select("text").node();
 
     if (textNode) {
-      this._cachedWidth = textNode.getBBox().width;
+      this._cachedWidth = RANK_GROUP_WIDTH;
+      // this._cachedWidth = textNode.getBBox().width;
     } else {
       return 0;
     }
@@ -616,13 +636,20 @@ Node.prototype.width = function() {
 
 Node.prototype.height = function() {
   var keys = Math.max(this._edgeKeys.length, 1);
-  return (KEY_HEIGHT * keys) + (KEY_SPACING * (keys - 1));
+  // if (this.rankGroup !== undefined) {
+    var totalKeys = this.rankGroup.totalEdgeKeys();
+    return (keys / totalKeys) * RANK_GROUP_HEIGHT - KEY_SPACING;
+  // }
+
+  // return (KEY_HEIGHT * keys) + (KEY_SPACING * (keys - 1));
 }
 
 Node.prototype.position = function() {
+  var totalKeys = this.rankGroup.totalEdgeKeys();
   return {
     x: this._position.x,
-    y: (KEY_HEIGHT + KEY_SPACING) * this._keyOffset
+    y: (this._keyOffset / totalKeys) * RANK_GROUP_HEIGHT
+    // y: (KEY_HEIGHT + KEY_SPACING) * this._keyOffset
   }
 }
 

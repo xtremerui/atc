@@ -7,16 +7,20 @@ import Task exposing (Task)
 import Concourse.Build exposing (Build, BuildJob)
 
 type alias Job =
-  { name: String
-  , pipelineName: String
-  , finishedBuild: Maybe Build
-  , paused: Bool
-  , disableManualTrigger: Bool
+  { name : String
+  , pipelineName : String
+  , finishedBuild : Maybe Build
+  , paused : Bool
+  , disableManualTrigger : Bool
   }
 
 fetchJob : BuildJob -> Task Http.Error Job
 fetchJob job =
   Http.get (decode job.pipelineName) ("/api/v1/pipelines/" ++ job.pipelineName ++ "/jobs/" ++ job.name)
+
+url : { name : String, pipelineName : String } -> String
+url job =
+  "/pipelines/" ++ job.pipelineName ++ "/jobs/" ++ job.name
 
 decode : String -> Json.Decode.Decoder Job
 decode pipelineName =
@@ -26,7 +30,7 @@ decode pipelineName =
     (Json.Decode.maybe ("paused" := Json.Decode.bool))
     (Json.Decode.maybe ("disable_manual_trigger" := Json.Decode.bool))
 
-init : String -> String -> Maybe Build -> Maybe Bool -> Maybe Bool ->Job
+init : String -> String -> Maybe Build -> Maybe Bool -> Maybe Bool -> Job
 init pipelineName name finishedBuild maybePaused maybeDisableManualTrigger =
   { name = name
   , pipelineName = pipelineName

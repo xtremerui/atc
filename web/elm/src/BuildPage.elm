@@ -8,15 +8,18 @@ import Time
 
 import Autoscroll
 import Build
+import Navigation
 import Scroll
 
 port buildId : Int
+
+port navState : Navigation.CurrentState
 
 main : Signal Html
 main =
   app.html
 
-app : StartApp.App (Autoscroll.Model Build.Model)
+app : StartApp.App (Navigation.Model (Autoscroll.Model Build.Model))
 app =
   let
     pageDrivenActions =
@@ -24,18 +27,19 @@ app =
   in
     StartApp.start
       { init =
-          Autoscroll.init
-            Build.getScrollBehavior <|
-            Build.init redirects.address pageDrivenActions.address buildId
-      , update = Autoscroll.update Build.update
-      , view = Autoscroll.view Build.view
+          Navigation.init navState <|
+            Autoscroll.init
+              Build.getScrollBehavior <|
+                Build.init redirects.address pageDrivenActions.address buildId
+      , update = Navigation.update (Autoscroll.update Build.update)
+      , view = Navigation.view (Autoscroll.view Build.view)
       , inputs =
-          [ Signal.map Autoscroll.SubAction pageDrivenActions.signal
+          [ Signal.map (Navigation.SubAction << Autoscroll.SubAction) pageDrivenActions.signal
           , Signal.merge
-              (Signal.map Autoscroll.FromBottom Scroll.fromBottom)
-              (Signal.map (always Autoscroll.ScrollDown) (Time.every (100 * Time.millisecond)))
+              (Signal.map (Navigation.SubAction << Autoscroll.FromBottom) Scroll.fromBottom)
+              (Signal.map (Navigation.SubAction << always Autoscroll.ScrollDown) (Time.every (100 * Time.millisecond)))
           ]
-      , inits = [Signal.map (Autoscroll.SubAction << Build.ClockTick) (Time.every Time.second)]
+      , inits = [Signal.map (Navigation.SubAction << Autoscroll.SubAction << Build.ClockTick) (Time.every Time.second)]
       }
 
 redirects : Signal.Mailbox String

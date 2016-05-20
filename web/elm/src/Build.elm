@@ -506,6 +506,13 @@ getScrollBehavior model =
     Concourse.BuildStatus.Pending -> NoScroll
     Concourse.BuildStatus.Succeeded -> NoScroll
 
+
+getPipelineName : Model -> Maybe String
+getPipelineName = Maybe.map .pipelineName << .job
+
+getJobName : Model -> Maybe String
+getJobName = Maybe.map .name << .job
+
 redirectToLogin : Model -> Effects Action
 redirectToLogin model =
   Signal.send model.redirect "/login"
