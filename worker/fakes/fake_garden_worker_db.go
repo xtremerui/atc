@@ -10,11 +10,12 @@ import (
 )
 
 type FakeGardenWorkerDB struct {
-	CreateContainerStub        func(db.Container, time.Duration) (db.SavedContainer, error)
+	CreateContainerStub        func(db.Container, time.Duration, time.Duration) (db.SavedContainer, error)
 	createContainerMutex       sync.RWMutex
 	createContainerArgsForCall []struct {
 		arg1 db.Container
 		arg2 time.Duration
+		arg3 time.Duration
 	}
 	createContainerReturns struct {
 		result1 db.SavedContainer
@@ -65,17 +66,26 @@ type FakeGardenWorkerDB struct {
 		result1 []db.SavedVolume
 		result2 error
 	}
+	ReapVolumeStub        func(string) error
+	reapVolumeMutex       sync.RWMutex
+	reapVolumeArgsForCall []struct {
+		arg1 string
+	}
+	reapVolumeReturns struct {
+		result1 error
+	}
 }
 
-func (fake *FakeGardenWorkerDB) CreateContainer(arg1 db.Container, arg2 time.Duration) (db.SavedContainer, error) {
+func (fake *FakeGardenWorkerDB) CreateContainer(arg1 db.Container, arg2 time.Duration, arg3 time.Duration) (db.SavedContainer, error) {
 	fake.createContainerMutex.Lock()
 	fake.createContainerArgsForCall = append(fake.createContainerArgsForCall, struct {
 		arg1 db.Container
 		arg2 time.Duration
-	}{arg1, arg2})
+		arg3 time.Duration
+	}{arg1, arg2, arg3})
 	fake.createContainerMutex.Unlock()
 	if fake.CreateContainerStub != nil {
-		return fake.CreateContainerStub(arg1, arg2)
+		return fake.CreateContainerStub(arg1, arg2, arg3)
 	} else {
 		return fake.createContainerReturns.result1, fake.createContainerReturns.result2
 	}
@@ -87,10 +97,10 @@ func (fake *FakeGardenWorkerDB) CreateContainerCallCount() int {
 	return len(fake.createContainerArgsForCall)
 }
 
-func (fake *FakeGardenWorkerDB) CreateContainerArgsForCall(i int) (db.Container, time.Duration) {
+func (fake *FakeGardenWorkerDB) CreateContainerArgsForCall(i int) (db.Container, time.Duration, time.Duration) {
 	fake.createContainerMutex.RLock()
 	defer fake.createContainerMutex.RUnlock()
-	return fake.createContainerArgsForCall[i].arg1, fake.createContainerArgsForCall[i].arg2
+	return fake.createContainerArgsForCall[i].arg1, fake.createContainerArgsForCall[i].arg2, fake.createContainerArgsForCall[i].arg3
 }
 
 func (fake *FakeGardenWorkerDB) CreateContainerReturns(result1 db.SavedContainer, result2 error) {
@@ -264,6 +274,38 @@ func (fake *FakeGardenWorkerDB) GetVolumesByIdentifierReturns(result1 []db.Saved
 		result1 []db.SavedVolume
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeGardenWorkerDB) ReapVolume(arg1 string) error {
+	fake.reapVolumeMutex.Lock()
+	fake.reapVolumeArgsForCall = append(fake.reapVolumeArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	fake.reapVolumeMutex.Unlock()
+	if fake.ReapVolumeStub != nil {
+		return fake.ReapVolumeStub(arg1)
+	} else {
+		return fake.reapVolumeReturns.result1
+	}
+}
+
+func (fake *FakeGardenWorkerDB) ReapVolumeCallCount() int {
+	fake.reapVolumeMutex.RLock()
+	defer fake.reapVolumeMutex.RUnlock()
+	return len(fake.reapVolumeArgsForCall)
+}
+
+func (fake *FakeGardenWorkerDB) ReapVolumeArgsForCall(i int) string {
+	fake.reapVolumeMutex.RLock()
+	defer fake.reapVolumeMutex.RUnlock()
+	return fake.reapVolumeArgsForCall[i].arg1
+}
+
+func (fake *FakeGardenWorkerDB) ReapVolumeReturns(result1 error) {
+	fake.ReapVolumeStub = nil
+	fake.reapVolumeReturns = struct {
+		result1 error
+	}{result1}
 }
 
 var _ worker.GardenWorkerDB = new(FakeGardenWorkerDB)

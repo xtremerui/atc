@@ -4,34 +4,48 @@ import "sort"
 
 type InputConfigs []InputConfig
 
-type InputConfig struct {
-	Name       string
-	JobName    string
-	Passed     JobSet
-	Version    string
-	ResourceID int
-	JobID      int
+type Version struct {
+	Every  bool
+	Pinned map[string]string
 }
 
-func (configs InputConfigs) Resolve(db *VersionsDB) (InputMapping, bool) {
+type InputConfig struct {
+	Name            string
+	JobName         string
+	Passed          JobSet
+	UseEveryVersion bool
+	PinnedVersionID int
+	ResourceID      int
+	JobID           int
+}
+
+func (configs InputConfigs) Resolve(db *VersionsDB) (InputMapping, bool, MissingInputReasons) {
 	jobs := JobSet{}
 	inputCandidates := InputCandidates{}
+	missingInputReasons := MissingInputReasons{}
+
 	for _, inputConfig := range configs {
-		candidateSet := VersionCandidates{}
+		versionCandidates := VersionCandidates{}
 
 		if len(inputConfig.Passed) == 0 {
-			candidateSet = db.AllVersionsForResource(inputConfig.ResourceID)
+			versionCandidates = db.AllVersionsForResource(inputConfig.ResourceID)
+
+			if len(versionCandidates) == 0 {
+				missingInputReasons.RegisterNoVersions(inputConfig.Name)
+				return nil, false, missingInputReasons
+			}
 		} else {
 			jobs = jobs.Union(inputConfig.Passed)
 
-			candidateSet = db.VersionsOfResourcePassedJobs(
+			versionCandidates = db.VersionsOfResourcePassedJobs(
 				inputConfig.ResourceID,
 				inputConfig.Passed,
 			)
-		}
 
-		if len(candidateSet) == 0 {
-			return nil, false
+			if len(versionCandidates) == 0 {
+				missingInputReasons.RegisterPassedConstraint(inputConfig.Name)
+				return nil, false, missingInputReasons
+			}
 		}
 
 		existingBuildResolver := &ExistingBuildResolver{
@@ -43,8 +57,9 @@ func (configs InputConfigs) Resolve(db *VersionsDB) (InputMapping, bool) {
 		inputCandidates = append(inputCandidates, InputVersionCandidates{
 			Input:                 inputConfig.Name,
 			Passed:                inputConfig.Passed,
-			Version:               inputConfig.Version,
-			VersionCandidates:     candidateSet,
+			UseEveryVersion:       inputConfig.UseEveryVersion,
+			PinnedVersionID:       inputConfig.PinnedVersionID,
+			VersionCandidates:     versionCandidates,
 			ExistingBuildResolver: existingBuildResolver,
 		})
 	}

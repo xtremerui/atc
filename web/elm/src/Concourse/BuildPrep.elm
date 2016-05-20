@@ -1,4 +1,4 @@
-module Concourse.BuildPrep where
+module Concourse.BuildPrep exposing (..)
 
 import Dict exposing (Dict)
 import Http
@@ -17,6 +17,7 @@ type alias BuildPrep =
   , maxRunningBuilds : BuildPrepStatus
   , inputs : Dict String BuildPrepStatus
   , inputsSatisfied : BuildPrepStatus
+  , missingInputReasons : Dict String String
   }
 
 fetch : BuildId -> Task Http.Error BuildPrep
@@ -32,11 +33,18 @@ decodeStatus =
       "not_blocking" -> Ok NotBlocking
       unknown -> Err ("unknown build preparation status: " ++ unknown)
 
+replaceMaybeWithEmptyDict : Maybe (Dict a b) -> Dict a b
+replaceMaybeWithEmptyDict maybeDict =
+    case maybeDict of
+      Just dict -> dict
+      Nothing -> Dict.empty
+
 decode : Json.Decode.Decoder BuildPrep
 decode =
-  Json.Decode.object5 BuildPrep
+  Json.Decode.object6 BuildPrep
     ("paused_pipeline" := decodeStatus)
     ("paused_job" := decodeStatus)
     ("max_running_builds" := decodeStatus)
     ("inputs" := Json.Decode.dict decodeStatus)
     ("inputs_satisfied" := decodeStatus)
+    (Json.Decode.map replaceMaybeWithEmptyDict (Json.Decode.maybe ("missing_input_reasons" := Json.Decode.dict Json.Decode.string)))

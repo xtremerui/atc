@@ -36,7 +36,7 @@ var _ = Describe("Leases", func() {
 
 		logger = lagertest.NewTestLogger("test")
 		sqlDB = db.NewSQL(dbConn, bus)
-		pipelineDBFactory = db.NewPipelineDBFactory(dbConn, bus, sqlDB)
+		pipelineDBFactory = db.NewPipelineDBFactory(dbConn, bus)
 	})
 
 	AfterEach(func() {
@@ -69,12 +69,11 @@ var _ = Describe("Leases", func() {
 	}
 
 	BeforeEach(func() {
-		team, err := sqlDB.SaveTeam(db.Team{Name: "some-team"})
+		_, err := sqlDB.CreateTeam(db.Team{Name: "some-team"})
 		Expect(err).NotTo(HaveOccurred())
-		_, _, err = sqlDB.SaveConfig(team.Name, "pipeline-name", pipelineConfig, 0, db.PipelineUnpaused)
-		Expect(err).NotTo(HaveOccurred())
-
-		savedPipeline, err := sqlDB.GetPipelineByTeamNameAndName(team.Name, "pipeline-name")
+		teamDBFactory := db.NewTeamDBFactory(dbConn)
+		teamDB := teamDBFactory.GetTeamDB("some-team")
+		savedPipeline, _, err := teamDB.SaveConfig("pipeline-name", pipelineConfig, 0, db.PipelineUnpaused)
 		Expect(err).NotTo(HaveOccurred())
 
 		pipelineDB = pipelineDBFactory.Build(savedPipeline)
@@ -497,28 +496,28 @@ var _ = Describe("Leases", func() {
 	})
 
 	Describe("taking out a lease on cache invalidation", func() {
-		Context("when something has been invalidating the cache recently", func() {
+		Context("when something got the lease recently", func() {
 			It("does not get the lease", func() {
-				lease, leased, err := sqlDB.LeaseCacheInvalidation(logger, 1*time.Second)
+				lease, leased, err := sqlDB.GetLease(logger, "some-task-name", 1*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(leased).To(BeTrue())
 
 				lease.Break()
 
-				_, leased, err = sqlDB.LeaseCacheInvalidation(logger, 1*time.Second)
+				_, leased, err = sqlDB.GetLease(logger, "some-task-name", 1*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(leased).To(BeFalse())
 			})
 		})
 
-		Context("when there has not been any cache invalidation recently", func() {
+		Context("when no one got the lease recently", func() {
 			It("gets and keeps the lease and stops others from getting it", func() {
-				lease, leased, err := sqlDB.LeaseCacheInvalidation(logger, 1*time.Second)
+				lease, leased, err := sqlDB.GetLease(logger, "some-task-name", 1*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(leased).To(BeTrue())
 
 				Consistently(func() bool {
-					_, leased, err = sqlDB.LeaseCacheInvalidation(logger, 1*time.Second)
+					_, leased, err = sqlDB.GetLease(logger, "some-task-name", 1*time.Second)
 					Expect(err).NotTo(HaveOccurred())
 
 					return leased
@@ -528,7 +527,23 @@ var _ = Describe("Leases", func() {
 
 				time.Sleep(time.Second)
 
-				newLease, leased, err := sqlDB.LeaseCacheInvalidation(logger, 1*time.Second)
+				newLease, leased, err := sqlDB.GetLease(logger, "some-task-name", 1*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(leased).To(BeTrue())
+
+				newLease.Break()
+			})
+		})
+
+		Context("when something got a different lease recently", func() {
+			It("still gets the lease", func() {
+				lease, leased, err := sqlDB.GetLease(logger, "some-other-task-name", 1*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(leased).To(BeTrue())
+
+				lease.Break()
+
+				newLease, leased, err := sqlDB.GetLease(logger, "some-task-name", 1*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(leased).To(BeTrue())
 

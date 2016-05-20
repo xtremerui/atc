@@ -5,11 +5,14 @@
 
 <script src="{{asset "elm.js"}}"></script>
 <script type="text/javascript">
-Elm.embed(
-  Elm.Main,
-  document.getElementById("elm-app"),
+var node = document.getElementById("elm-app");
+
+Elm.BuildPage.embed(
+  node,
   {
-    buildId: {{.Build.ID}},
+    buildFlags: {
+      buildId: {{.Build.ID}},
+    },
     navState: {
       job: {
         name: {{.Job.Name}},

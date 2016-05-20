@@ -62,6 +62,10 @@ var _ = Describe("DBProvider", func() {
 			http.StatusOK,
 			baggageclaim.VolumeResponse{Handle: "vol-handle"},
 		))
+		baggageclaimServer.RouteToHandler("GET", "/volumes/vol-handle/stats", ghttp.RespondWithJSONEncoded(
+			http.StatusOK,
+			baggageclaim.VolumeStatsResponse{Size: 1024},
+		))
 
 		fakeDB = new(fakes.FakeWorkerDB)
 		fakeDB.GetVolumeTTLReturns(1*time.Millisecond, true, nil)
@@ -136,15 +140,17 @@ var _ = Describe("DBProvider", func() {
 
 			Context("creating the connection to garden", func() {
 				var id Identifier
-				var spec ResourceTypeContainerSpec
+				var spec ContainerSpec
 
 				JustBeforeEach(func() {
 					id = Identifier{
 						ResourceID: 1234,
 					}
 
-					spec = ResourceTypeContainerSpec{
-						Type: "some-resource-a",
+					spec = ContainerSpec{
+						ImageSpec: ImageSpec{
+							ResourceType: "some-resource-a",
+						},
 					}
 
 					fakeContainer := new(gfakes.FakeContainer)
@@ -154,6 +160,7 @@ var _ = Describe("DBProvider", func() {
 					fakeGardenBackend.LookupReturns(fakeContainer, nil)
 
 					By("connecting to the worker")
+					fakeDB.GetWorkerReturns(db.SavedWorker{WorkerInfo: db.WorkerInfo{GardenAddr: gardenAddr}}, true, nil)
 					container, err := workers[0].CreateContainer(logger, nil, fakeImageFetchingDelegate, id, Metadata{}, spec, nil)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -178,43 +185,22 @@ var _ = Describe("DBProvider", func() {
 					err = gardenServer.Start()
 					Expect(err).NotTo(HaveOccurred())
 				})
-
-				It("can continue to connect after the worker address changes", func() {
-					fakeDB.GetWorkerReturns(db.SavedWorker{WorkerInfo: db.WorkerInfo{GardenAddr: gardenAddr}}, true, nil)
-
-					container, err := workers[0].CreateContainer(logger, nil, fakeImageFetchingDelegate, id, Metadata{}, spec, nil)
-					Expect(err).NotTo(HaveOccurred())
-
-					err = container.Destroy()
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("throws an error if the worker cannot be found", func() {
-					fakeDB.GetWorkerReturns(db.SavedWorker{}, false, nil)
-
-					_, err := workers[0].CreateContainer(logger, nil, fakeImageFetchingDelegate, id, Metadata{}, spec, nil)
-					Expect(err).To(HaveOccurred())
-					Expect(err).To(Equal(ErrMissingWorker))
-				})
-
-				It("throws an error if the lookup of the worker in the db errors", func() {
-					expectedErr := errors.New("some-db-error")
-					fakeDB.GetWorkerReturns(db.SavedWorker{}, true, expectedErr)
-
-					_, actualErr := workers[0].CreateContainer(logger, nil, fakeImageFetchingDelegate, id, Metadata{}, spec, nil)
-					Expect(actualErr).To(HaveOccurred())
-					Expect(actualErr).To(Equal(expectedErr))
-				})
 			})
 
 			Describe("a created container", func() {
+				BeforeEach(func() {
+					fakeDB.GetWorkerReturns(db.SavedWorker{WorkerInfo: db.WorkerInfo{GardenAddr: gardenAddr}}, true, nil)
+				})
+
 				It("calls through to garden", func() {
 					id := Identifier{
 						ResourceID: 1234,
 					}
 
-					spec := ResourceTypeContainerSpec{
-						Type: "some-resource-a",
+					spec := ContainerSpec{
+						ImageSpec: ImageSpec{
+							ResourceType: "some-resource-a",
+						},
 					}
 
 					fakeContainer := new(gfakes.FakeContainer)
@@ -227,7 +213,7 @@ var _ = Describe("DBProvider", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(fakeDB.CreateContainerCallCount()).To(Equal(1))
-					createdInfo, _ := fakeDB.CreateContainerArgsForCall(0)
+					createdInfo, _, _ := fakeDB.CreateContainerArgsForCall(0)
 					Expect(createdInfo.WorkerName).To(Equal("some-worker"))
 
 					Expect(container.Handle()).To(Equal("created-handle"))
@@ -243,6 +229,10 @@ var _ = Describe("DBProvider", func() {
 			})
 
 			Describe("a looked-up container", func() {
+				BeforeEach(func() {
+					fakeDB.GetWorkerReturns(db.SavedWorker{WorkerInfo: db.WorkerInfo{GardenAddr: gardenAddr}}, true, nil)
+				})
+
 				It("calls through to garden", func() {
 					fakeContainer := new(gfakes.FakeContainer)
 					fakeContainer.HandleReturns("some-handle")

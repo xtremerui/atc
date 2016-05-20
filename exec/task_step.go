@@ -3,6 +3,7 @@ package exec
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/db"
 	"github.com/concourse/atc/worker"
+	"github.com/concourse/atc/worker/image"
 	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 )
@@ -52,6 +54,7 @@ type TaskStep struct {
 	containerFailureTTL time.Duration
 	inputMapping        map[string]string
 	outputMapping       map[string]string
+	imageArtifactName   string
 	clock               clock.Clock
 	repo                *SourceRepository
 
@@ -77,6 +80,7 @@ func newTaskStep(
 	containerFailureTTL time.Duration,
 	inputMapping map[string]string,
 	outputMapping map[string]string,
+	imageArtifactName string,
 	clock clock.Clock,
 ) TaskStep {
 	return TaskStep{
@@ -95,6 +99,7 @@ func newTaskStep(
 		containerFailureTTL: containerFailureTTL,
 		inputMapping:        inputMapping,
 		outputMapping:       outputMapping,
+		imageArtifactName:   imageArtifactName,
 		clock:               clock,
 	}
 }
@@ -332,14 +337,89 @@ func (step *TaskStep) createContainer(compatibleWorkers []worker.Worker, config 
 		step.logger.Debug("created-output-volume", lager.Data{"volume-Handle": outVolume.Handle()})
 	}
 
-	containerSpec := worker.TaskContainerSpec{
-		Platform:      config.Platform,
-		Tags:          step.tags,
-		Privileged:    bool(step.privileged),
-		Inputs:        inputMounts,
-		Outputs:       outputMounts,
-		ImageResource: config.ImageResource,
-		Image:         config.Image,
+	var imageSpec worker.ImageSpec
+	if step.imageArtifactName != "" {
+		source, found := step.repo.SourceFor(SourceName(step.imageArtifactName))
+		if !found {
+			return nil, nil, errors.New("failed-to-lookup-source-for-image-artifact")
+		}
+
+		volume, existsOnWorker, err := source.VolumeOn(chosenWorker)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if existsOnWorker {
+			step.logger.Debug("found-existing-image-artifact-volume")
+			defer volume.Release(nil)
+		} else {
+			step.logger.Debug("creating-image-artifact-volume")
+			volume, err = chosenWorker.CreateVolume(
+				step.logger,
+				worker.VolumeSpec{
+					Strategy: worker.ImageArtifactReplicationStrategy{
+						Name: step.imageArtifactName,
+					},
+					Privileged: true,
+					TTL:        worker.VolumeTTL,
+				},
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			defer volume.Release(nil)
+
+			dest := workerArtifactDestination{
+				destination: volume,
+			}
+
+			err = source.StreamTo(&dest)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		cowVolume, err := chosenWorker.CreateVolume(step.logger, worker.VolumeSpec{
+			Strategy: worker.ContainerRootFSStrategy{
+				Parent: volume,
+			},
+			Privileged: bool(step.privileged),
+			TTL:        worker.VolumeTTL,
+		})
+
+		if err != nil {
+			return nil, nil, err
+		}
+
+		reader, err := source.StreamFile(image.ImageMetadataFile)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		imageMetadata := worker.ImageVolumeAndMetadata{
+			Volume:         cowVolume,
+			MetadataReader: reader,
+		}
+
+		imageSpec = worker.ImageSpec{
+			ImageVolumeAndMetadata: imageMetadata,
+			Privileged:             bool(step.privileged),
+		}
+	} else {
+		imageSpec = worker.ImageSpec{
+			ImageURL:      config.Image,
+			ImageResource: config.ImageResource,
+			Privileged:    bool(step.privileged),
+		}
+	}
+
+	containerSpec := worker.ContainerSpec{
+		Platform:  config.Platform,
+		Tags:      step.tags,
+		Inputs:    inputMounts,
+		Outputs:   outputMounts,
+		ImageSpec: imageSpec,
 	}
 
 	runContainerID := step.containerID
@@ -738,4 +818,12 @@ func createContainerDir(container garden.Container, dir string) error {
 	}
 
 	return nil
+}
+
+type workerArtifactDestination struct {
+	destination worker.Volume
+}
+
+func (wad *workerArtifactDestination) StreamIn(path string, tarStream io.Reader) error {
+	return wad.destination.StreamIn(path, tarStream)
 }

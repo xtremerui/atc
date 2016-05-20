@@ -25,7 +25,7 @@ type BaggageCollectorDB interface {
 //go:generate counterfeiter . BaggageCollector
 
 type BaggageCollector interface {
-	Collect() error
+	Run() error
 }
 
 type baggageCollector struct {
@@ -37,7 +37,7 @@ type baggageCollector struct {
 	oneOffBuildImageResourceGracePeriod time.Duration
 }
 
-func (bc *baggageCollector) Collect() error {
+func (bc *baggageCollector) Run() error {
 	bc.logger.Info("collect")
 
 	latestVersions, err := bc.getLatestVersionSet()
@@ -155,21 +155,6 @@ func (bc *baggageCollector) getLatestVersionSet() (hashedVersionSet, error) {
 	return latestVersions, nil
 }
 
-func (bc *baggageCollector) getSortedVolumes() ([]db.SavedVolume, error) {
-	unsorted, err := bc.db.GetVolumes()
-	if err != nil {
-		return []db.SavedVolume{}, err
-	}
-
-	sort.Sort(sortByHandle(unsorted))
-
-	sorted := unsorted
-
-	return sorted, nil
-}
-
-type resourceCacheIdentifierAndWorkerNameSet map[string]bool
-
 func resourceCacheHashKey(volume db.SavedVolume) (string, bool) {
 	resourceCacheID := volume.Volume.Identifier.ResourceCache
 	if resourceCacheID == nil {
@@ -181,31 +166,16 @@ func resourceCacheHashKey(volume db.SavedVolume) (string, bool) {
 }
 
 func (bc *baggageCollector) expireVolumes(latestVersions hashedVersionSet) error {
-	volumesToExpire, err := bc.getSortedVolumes()
-
-	seenResourceCacheIdentifierAndWorkerNameCombos := resourceCacheIdentifierAndWorkerNameSet{}
-
+	volumesToExpire, err := bc.db.GetVolumes()
 	if err != nil {
 		bc.logger.Error("could-not-get-volume-data", err)
 		return err
 	}
 
+	sort.Sort(sortByHandle(volumesToExpire))
+
+	seenIdentifiers := map[string]bool{}
 	for _, volumeToExpire := range volumesToExpire {
-		hashKey, isResourceCache := resourceCacheHashKey(volumeToExpire)
-		if !isResourceCache {
-			continue
-		}
-
-		var ttlForVol time.Duration
-
-		resourceCacheIdentifierAndWorkerNameCombo := hashKey + volumeToExpire.WorkerName
-		if contains(seenResourceCacheIdentifierAndWorkerNameCombos, resourceCacheIdentifierAndWorkerNameCombo) {
-			ttlForVol = bc.oldResourceGracePeriod
-		} else {
-			seenResourceCacheIdentifierAndWorkerNameCombos[resourceCacheIdentifierAndWorkerNameCombo] = true
-			ttlForVol = getWithDefault(latestVersions, hashKey, bc.oldResourceGracePeriod)
-		}
-
 		volumeWorker, err := bc.workerClient.GetWorker(volumeToExpire.WorkerName)
 		if err != nil {
 			bc.logger.Info("could-not-locate-worker", lager.Data{
@@ -215,6 +185,39 @@ func (bc *baggageCollector) expireVolumes(latestVersions hashedVersionSet) error
 			bc.db.ReapVolume(volumeToExpire.Handle)
 			continue
 		}
+
+		var hashKey string
+		switch {
+		case volumeToExpire.Volume.Identifier.ResourceCache != nil:
+			version, err := json.Marshal(volumeToExpire.Volume.Identifier.ResourceCache.ResourceVersion)
+			if err != nil {
+				return err
+			}
+			hashKey = string(version) + volumeToExpire.Volume.Identifier.ResourceCache.ResourceHash
+		case volumeToExpire.Volume.Identifier.Import != nil:
+			identifier := volumeToExpire.Volume.Identifier.Import
+			workerResourceType, found := volumeWorker.FindResourceTypeByPath(identifier.Path)
+			if found && workerResourceType.Version == *identifier.Version {
+				continue
+			}
+
+			hashKey = identifier.WorkerName + identifier.Path + *identifier.Version
+		default:
+			continue
+		}
+
+		identifier := hashKey + volumeToExpire.WorkerName
+
+		var ttlForVol time.Duration
+		if _, found := seenIdentifiers[identifier]; found {
+			ttlForVol = bc.oldResourceGracePeriod
+		} else if ttl, found := latestVersions[hashKey]; found {
+			ttlForVol = ttl
+		} else {
+			ttlForVol = bc.oldResourceGracePeriod
+		}
+
+		seenIdentifiers[identifier] = true
 
 		if volumeToExpire.TTL == ttlForVol {
 			continue
@@ -270,16 +273,3 @@ type sortByHandle []db.SavedVolume
 func (s sortByHandle) Len() int           { return len(s) }
 func (s sortByHandle) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s sortByHandle) Less(i, j int) bool { return s[i].Volume.Handle < s[j].Volume.Handle }
-
-func contains(set resourceCacheIdentifierAndWorkerNameSet, item string) bool {
-	value, found := set[item]
-	return found && value
-}
-
-func getWithDefault(latestVersions hashedVersionSet, hashKey string, defaultTTL time.Duration) time.Duration {
-	ttl, found := latestVersions[hashKey]
-	if !found {
-		ttl = defaultTTL
-	}
-	return ttl
-}

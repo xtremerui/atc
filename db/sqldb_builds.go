@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/concourse/atc"
@@ -11,8 +13,8 @@ import (
 	"github.com/lib/pq"
 )
 
-const buildColumns = "id, name, job_id, status, scheduled, inputs_determined, engine, engine_metadata, start_time, end_time"
-const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.status, b.scheduled, b.inputs_determined, b.engine, b.engine_metadata, b.start_time, b.end_time, j.name as job_name, p.id as pipeline_id, p.name as pipeline_name"
+const buildColumns = "id, name, job_id, status, scheduled, inputs_determined, engine, engine_metadata, start_time, end_time, reap_time"
+const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.status, b.scheduled, b.inputs_determined, b.engine, b.engine_metadata, b.start_time, b.end_time, b.reap_time, j.name as job_name, p.id as pipeline_id, p.name as pipeline_name"
 
 func (db *SQLDB) GetBuilds(page Page) ([]Build, Pagination, error) {
 	query := `
@@ -512,21 +514,35 @@ func (db *SQLDB) ErrorBuild(buildID int, pipelineID int, cause error) error {
 }
 
 func (db *SQLDB) SaveBuildInput(buildID int, input BuildInput) (SavedVersionedResource, error) {
-	pipelineDBFactory := NewPipelineDBFactory(db.conn, db.bus, db)
-	pipelineDB, err := pipelineDBFactory.BuildWithID(input.VersionedResource.PipelineID)
+	row := db.conn.QueryRow(`
+		SELECT `+pipelineColumns+`
+		FROM pipelines
+		WHERE id = $1
+	`, input.VersionedResource.PipelineID)
+
+	savedPipeline, err := scanPipeline(row)
 	if err != nil {
 		return SavedVersionedResource{}, err
 	}
+	pipelineDBFactory := NewPipelineDBFactory(db.conn, db.bus)
+	pipelineDB := pipelineDBFactory.Build(savedPipeline)
 
 	return pipelineDB.SaveBuildInput(buildID, input)
 }
 
 func (db *SQLDB) SaveBuildOutput(buildID int, vr VersionedResource, explicit bool) (SavedVersionedResource, error) {
-	pipelineDBFactory := NewPipelineDBFactory(db.conn, db.bus, db)
-	pipelineDB, err := pipelineDBFactory.BuildWithID(vr.PipelineID)
+	row := db.conn.QueryRow(`
+		SELECT `+pipelineColumns+`
+		FROM pipelines
+		WHERE id = $1
+	`, vr.PipelineID)
+
+	savedPipeline, err := scanPipeline(row)
 	if err != nil {
 		return SavedVersionedResource{}, err
 	}
+	pipelineDBFactory := NewPipelineDBFactory(db.conn, db.bus)
+	pipelineDB := pipelineDBFactory.Build(savedPipeline)
 
 	return pipelineDB.SaveBuildOutput(buildID, vr, explicit)
 }
@@ -602,6 +618,49 @@ func (db *SQLDB) AbortNotifier(buildID int) (Notifier, error) {
 	})
 }
 
+func (db *SQLDB) DeleteBuildEventsByBuildIDs(buildIDs []int) error {
+	if len(buildIDs) == 0 {
+		return nil
+	}
+
+	interfaceBuildIDs := make([]interface{}, len(buildIDs))
+	for i, buildID := range buildIDs {
+		interfaceBuildIDs[i] = buildID
+	}
+
+	indexStrings := make([]string, len(buildIDs))
+	for i := range indexStrings {
+		indexStrings[i] = "$" + strconv.Itoa(i+1)
+	}
+
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+   DELETE FROM build_events
+	 WHERE build_id IN (`+strings.Join(indexStrings, ",")+`)
+	 `, interfaceBuildIDs...)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+		UPDATE builds
+		SET reap_time = now()
+		WHERE id IN (`+strings.Join(indexStrings, ",")+`)
+	`, interfaceBuildIDs...)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	return err
+}
+
 func (db *SQLDB) SaveBuildEvent(buildID int, pipelineID int, event atc.Event) error {
 	tx, err := db.conn.Begin()
 	if err != nil {
@@ -660,8 +719,9 @@ func scanBuild(row scannable) (Build, bool, error) {
 	var engine, engineMetadata, jobName, pipelineName sql.NullString
 	var startTime pq.NullTime
 	var endTime pq.NullTime
+	var reapTime pq.NullTime
 
-	err := row.Scan(&id, &name, &jobID, &status, &scheduled, &inputsDetermined, &engine, &engineMetadata, &startTime, &endTime, &jobName, &pipelineID, &pipelineName)
+	err := row.Scan(&id, &name, &jobID, &status, &scheduled, &inputsDetermined, &engine, &engineMetadata, &startTime, &endTime, &reapTime, &jobName, &pipelineID, &pipelineName)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Build{}, false, nil
@@ -682,6 +742,7 @@ func scanBuild(row scannable) (Build, bool, error) {
 
 		StartTime: startTime.Time,
 		EndTime:   endTime.Time,
+		ReapTime:  reapTime.Time,
 	}
 
 	if jobID.Valid {

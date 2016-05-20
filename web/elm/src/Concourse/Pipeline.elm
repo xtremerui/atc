@@ -1,4 +1,4 @@
-module Concourse.Pipeline where
+module Concourse.Pipeline exposing (..)
 
 import Http
 import Json.Decode exposing ((:=))

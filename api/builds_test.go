@@ -66,6 +66,7 @@ var _ = Describe("Builds API", func() {
 						Status:       db.StatusStarted,
 						StartTime:    time.Unix(1, 0),
 						EndTime:      time.Unix(100, 0),
+						ReapTime:     time.Unix(200, 0),
 					}, nil)
 				})
 
@@ -107,13 +108,14 @@ var _ = Describe("Builds API", func() {
 						Expect(body).To(MatchJSON(`{
 							"id": 42,
 							"name": "1",
+							"team_name": "main",
 							"status": "started",
 							"url": "/builds/42",
 							"api_url": "/api/v1/builds/42",
 							"start_time": 1,
-							"end_time": 100
+							"end_time": 100,
+							"reap_time": 200
 						}`))
-
 					})
 
 					It("creates a one-off build and runs it asynchronously", func() {
@@ -124,11 +126,13 @@ var _ = Describe("Builds API", func() {
 						Expect(oneOff).To(Equal(db.Build{
 							ID:           42,
 							Name:         "1",
+							TeamName:     "main",
 							JobName:      "",
 							PipelineName: "",
 							Status:       db.StatusStarted,
 							StartTime:    time.Unix(1, 0),
 							EndTime:      time.Unix(100, 0),
+							ReapTime:     time.Unix(200, 0),
 						}))
 
 						Expect(builtPlan).To(Equal(plan))
@@ -229,6 +233,7 @@ var _ = Describe("Builds API", func() {
 						Status:       db.StatusSucceeded,
 						StartTime:    time.Unix(1, 0),
 						EndTime:      time.Unix(100, 0),
+						ReapTime:     time.Unix(200, 0),
 					}, true, nil)
 				})
 
@@ -250,10 +255,12 @@ var _ = Describe("Builds API", func() {
 						"status": "succeeded",
 						"job_name": "job1",
 						"pipeline_name": "pipeline1",
-						"url": "/pipelines/pipeline1/jobs/job1/builds/1",
+						"url": "/teams/main/pipelines/pipeline1/jobs/job1/builds/1",
+						"team_name": "main",
 						"api_url": "/api/v1/builds/1",
 						"start_time": 1,
-						"end_time": 100
+						"end_time": 100,
+						"reap_time": 200
 					}`))
 				})
 			})
@@ -448,6 +455,7 @@ var _ = Describe("Builds API", func() {
 				Status:       db.StatusStarted,
 				StartTime:    time.Unix(1, 0),
 				EndTime:      time.Unix(100, 0),
+				ReapTime:     time.Unix(300, 0),
 			},
 			{
 				ID:           3,
@@ -457,6 +465,7 @@ var _ = Describe("Builds API", func() {
 				Status:       db.StatusSucceeded,
 				StartTime:    time.Unix(101, 0),
 				EndTime:      time.Unix(200, 0),
+				ReapTime:     time.Unix(400, 0),
 			},
 		}
 
@@ -524,22 +533,26 @@ var _ = Describe("Builds API", func() {
 						"name": "2",
 						"job_name": "job2",
 						"pipeline_name": "pipeline2",
+						"team_name": "main",
 						"status": "started",
-						"url": "/pipelines/pipeline2/jobs/job2/builds/2",
+						"url": "/teams/main/pipelines/pipeline2/jobs/job2/builds/2",
 						"api_url": "/api/v1/builds/4",
 						"start_time": 1,
-						"end_time": 100
+						"end_time": 100,
+						"reap_time": 300
 					},
 					{
 						"id": 3,
 						"name": "1",
 						"job_name": "job1",
 						"pipeline_name": "pipeline1",
+						"team_name": "main",
 						"status": "succeeded",
-						"url": "/pipelines/pipeline1/jobs/job1/builds/1",
+						"url": "/teams/main/pipelines/pipeline1/jobs/job1/builds/1",
 						"api_url": "/api/v1/builds/3",
 						"start_time": 101,
-						"end_time": 200
+						"end_time": 200,
+						"reap_time": 400
 					}
 				]`))
 			})
@@ -865,7 +878,8 @@ var _ = Describe("Builds API", func() {
 						"foo": db.BuildPreparationStatusUnknown,
 						"bar": db.BuildPreparationStatusBlocking,
 					},
-					InputsSatisfied: db.BuildPreparationStatusBlocking,
+					InputsSatisfied:     db.BuildPreparationStatusBlocking,
+					MissingInputReasons: db.MissingInputReasons{"some-input": "some-reason"},
 				}
 				buildsDB.GetBuildPreparationReturns(buildPrep, true, nil)
 			})
@@ -892,7 +906,10 @@ var _ = Describe("Builds API", func() {
 						"foo": "unknown",
 						"bar": "blocking"
 					},
-					"inputs_satisfied": "blocking"
+					"inputs_satisfied": "blocking",
+					"missing_input_reasons": {
+						"some-input": "some-reason"
+					}
 				}`))
 			})
 		})

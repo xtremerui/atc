@@ -23,6 +23,7 @@ var _ = Describe("Auth", func() {
 	var atcProcess ifrit.Process
 	var dbListener *pq.Listener
 	var atcPort uint16
+	var teamDB db.TeamDB
 
 	BeforeEach(func() {
 		postgresRunner.Truncate()
@@ -33,10 +34,13 @@ var _ = Describe("Auth", func() {
 
 		err := sqlDB.DeleteTeamByName(atc.DefaultPipelineName)
 		Expect(err).NotTo(HaveOccurred())
-		team, err := sqlDB.SaveTeam(db.Team{Name: atc.DefaultTeamName})
+		_, err = sqlDB.CreateTeam(db.Team{Name: atc.DefaultTeamName})
 		Expect(err).NotTo(HaveOccurred())
 
-		_, _, err = sqlDB.SaveConfig(team.Name, atc.DefaultPipelineName, atc.Config{}, db.ConfigVersion(1), db.PipelineUnpaused)
+		teamDBFactory := db.NewTeamDBFactory(dbConn)
+		teamDB = teamDBFactory.GetTeamDB(atc.DefaultTeamName)
+
+		_, _, err = teamDB.SaveConfig(atc.DefaultPipelineName, atc.Config{}, db.ConfigVersion(1), db.PipelineUnpaused)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -49,7 +53,7 @@ var _ = Describe("Auth", func() {
 
 	Describe("GitHub Auth", func() {
 		BeforeEach(func() {
-			atcProcess, atcPort = startATC(atcBin, 1, false, GITHUB_AUTH)
+			atcProcess, atcPort, _ = startATC(atcBin, 1, false, []string{}, GITHUB_AUTH)
 		})
 
 		It("forces a redirect to /login", func() {
@@ -59,7 +63,7 @@ var _ = Describe("Auth", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Request.URL.Path).To(Equal("/login"))
 
-			team, _, err := sqlDB.GetTeamByName(atc.DefaultTeamName)
+			team, _, err := teamDB.GetTeam()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(team.ClientID).To(Equal("admin"))
 			Expect(team.ClientSecret).To(Equal("password"))
@@ -69,7 +73,7 @@ var _ = Describe("Auth", func() {
 
 	Describe("GitHub Enterprise Auth", func() {
 		BeforeEach(func() {
-			atcProcess, atcPort = startATC(atcBin, 1, false, GITHUB_ENTERPRISE_AUTH)
+			atcProcess, atcPort, _ = startATC(atcBin, 1, false, []string{}, GITHUB_ENTERPRISE_AUTH)
 		})
 
 		It("forces a redirect to override github", func() {
@@ -87,7 +91,7 @@ var _ = Describe("Auth", func() {
 
 	Describe("Basic Auth", func() {
 		BeforeEach(func() {
-			atcProcess, atcPort = startATC(atcBin, 1, false, BASIC_AUTH)
+			atcProcess, atcPort, _ = startATC(atcBin, 1, false, []string{}, BASIC_AUTH)
 		})
 
 		It("forces a redirect to /login", func() {
@@ -110,7 +114,7 @@ var _ = Describe("Auth", func() {
 
 	Context("when basic auth is misconfigured", func() {
 		It("errors when only username is specified", func() {
-			atcCommand, _ := getATCCommand(atcBin, 1, false, BASIC_AUTH_NO_PASSWORD)
+			atcCommand, _, _ := getATCCommand(atcBin, 1, false, []string{}, BASIC_AUTH_NO_PASSWORD)
 			session, err := gexec.Start(atcCommand, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(1))
@@ -118,7 +122,7 @@ var _ = Describe("Auth", func() {
 		})
 
 		It("errors when only password is specified", func() {
-			atcCommand, _ := getATCCommand(atcBin, 1, false, BASIC_AUTH_NO_USERNAME)
+			atcCommand, _, _ := getATCCommand(atcBin, 1, false, []string{}, BASIC_AUTH_NO_USERNAME)
 			session, err := gexec.Start(atcCommand, GinkgoWriter, GinkgoWriter)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(1))
@@ -128,7 +132,7 @@ var _ = Describe("Auth", func() {
 
 	Describe("No authentication via development mode", func() {
 		BeforeEach(func() {
-			atcProcess, atcPort = startATC(atcBin, 1, false, DEVELOPMENT_MODE)
+			atcProcess, atcPort, _ = startATC(atcBin, 1, false, []string{}, DEVELOPMENT_MODE)
 		})
 
 		It("logs in without authentication", func() {

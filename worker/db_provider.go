@@ -19,7 +19,7 @@ import (
 type WorkerDB interface {
 	Workers() ([]db.SavedWorker, error)
 	GetWorker(string) (db.SavedWorker, bool, error)
-	CreateContainer(db.Container, time.Duration) (db.SavedContainer, error)
+	CreateContainer(db.Container, time.Duration, time.Duration) (db.SavedContainer, error)
 	GetContainer(string) (db.SavedContainer, bool, error)
 	FindContainerByIdentifier(db.ContainerIdentifier) (db.SavedContainer, bool, error)
 
@@ -31,6 +31,7 @@ type WorkerDB interface {
 	GetVolumeTTL(volumeHandle string) (time.Duration, bool, error)
 	ReapVolume(handle string) error
 	SetVolumeTTL(string, time.Duration) error
+	SetVolumeSize(string, uint) error
 }
 
 var ErrMultipleWorkersWithName = errors.New("More than one worker has given worker name")
@@ -106,22 +107,13 @@ func (provider *dbProvider) ReapContainer(handle string) error {
 }
 
 func (provider *dbProvider) newGardenWorker(tikTok clock.Clock, savedWorker db.SavedWorker) Worker {
-	workerLog := provider.logger.Session("worker-connection", lager.Data{
-		"addr": savedWorker.GardenAddr,
-	})
-
-	gardenConn := NewRetryableConnection(
-		workerLog,
-		tikTok,
-		provider.retryPolicy,
-		NewGardenConnectionFactory(
-			provider.db,
-			provider.dialer,
-			provider.logger.Session("garden-connection"),
-			savedWorker.Name,
-			savedWorker.GardenAddr,
-		),
+	gcf := NewGardenConnectionFactory(
+		provider.db,
+		provider.logger.Session("garden-connection"),
+		savedWorker.Name,
 	)
+
+	connection := NewRetryableConnection(gcf.BuildConnection())
 
 	var bClient baggageclaim.Client
 	if savedWorker.BaggageclaimURL != "" {
@@ -141,7 +133,7 @@ func (provider *dbProvider) newGardenWorker(tikTok clock.Clock, savedWorker db.S
 	)
 
 	return NewGardenWorker(
-		gclient.New(gardenConn),
+		gclient.New(connection),
 		bClient,
 		volumeClient,
 		volumeFactory,
@@ -154,6 +146,7 @@ func (provider *dbProvider) newGardenWorker(tikTok clock.Clock, savedWorker db.S
 		savedWorker.Platform,
 		savedWorker.Tags,
 		savedWorker.Name,
+		savedWorker.StartTime,
 		savedWorker.HTTPProxyURL,
 		savedWorker.HTTPSProxyURL,
 		savedWorker.NoProxy,

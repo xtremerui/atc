@@ -215,7 +215,7 @@ var _ = Describe("Auth API", func() {
 
 			Context("when there's a problem finding teams", func() {
 				BeforeEach(func() {
-					teamDB.GetTeamByNameReturns(db.SavedTeam{}, false, errors.New("a dingo ate my baby!"))
+					teamDB.GetTeamReturns(db.SavedTeam{}, false, errors.New("a dingo ate my baby!"))
 				})
 
 				It("returns 500 Internal Server Error", func() {
@@ -225,10 +225,7 @@ var _ = Describe("Auth API", func() {
 
 			Context("when team exists", func() {
 				BeforeEach(func() {
-					teamDB.GetTeamByNameStub = func(submittedName string) (db.SavedTeam, bool, error) {
-						Expect(submittedName).To(Equal(teamName))
-						return savedTeam, true, nil
-					}
+					teamDB.GetTeamReturns(savedTeam, true, nil)
 				})
 
 				It("returns 200 OK", func() {
@@ -244,7 +241,7 @@ var _ = Describe("Auth API", func() {
 					"name": "team venture"
 				}`))
 
-					Expect(teamDB.SaveTeamCallCount()).To(Equal(0))
+					Expect(teamsDB.CreateTeamCallCount()).To(Equal(0))
 				})
 
 				Context("updating authentication", func() {
@@ -266,10 +263,11 @@ var _ = Describe("Auth API", func() {
 
 					Context("when passed basic auth credentials", func() {
 						BeforeEach(func() {
-							teamDB.UpdateTeamBasicAuthStub = func(submittedTeam db.Team) (db.SavedTeam, error) {
+							teamDB.UpdateBasicAuthStub = func(basicAuth db.BasicAuth) (db.SavedTeam, error) {
 								team.Name = teamName
-								atcDBTeamEquality(team, submittedTeam)
-								savedTeam.Team = submittedTeam
+								Expect(basicAuth.BasicAuthUsername).To(Equal(team.BasicAuthUsername))
+								Expect(basicAuth.BasicAuthPassword).To(Equal(team.BasicAuthPassword))
+								savedTeam.BasicAuth = basicAuth
 								return savedTeam, nil
 							}
 
@@ -278,16 +276,26 @@ var _ = Describe("Auth API", func() {
 
 						It("updates the basic auth for that team", func() {
 							Expect(response.StatusCode).To(Equal(http.StatusOK))
-							Expect(teamDB.UpdateTeamBasicAuthCallCount()).To(Equal(1))
+							Expect(teamDB.UpdateBasicAuthCallCount()).To(Equal(1))
 						})
 					})
 
 					Context("when passed GitHub auth credentials", func() {
 						BeforeEach(func() {
-							teamDB.UpdateTeamGitHubAuthStub = func(submittedTeam db.Team) (db.SavedTeam, error) {
+							teamDB.UpdateGitHubAuthStub = func(gitHubAuth db.GitHubAuth) (db.SavedTeam, error) {
 								team.Name = teamName
-								atcDBTeamEquality(team, submittedTeam)
-								savedTeam.Team = submittedTeam
+								Expect(gitHubAuth.ClientID).To(Equal(team.GitHubAuth.ClientID))
+								Expect(gitHubAuth.ClientSecret).To(Equal(team.GitHubAuth.ClientSecret))
+								Expect(gitHubAuth.Organizations).To(Equal(team.GitHubAuth.Organizations))
+								Expect(gitHubAuth.Teams).To(HaveLen(len(team.GitHubAuth.Teams)))
+								for _, t := range gitHubAuth.Teams {
+									Expect(team.GitHubAuth.Teams).To(ContainElement(db.GitHubTeam{
+										OrganizationName: t.OrganizationName,
+										TeamName:         t.TeamName,
+									}))
+								}
+								Expect(gitHubAuth.Users).To(Equal(team.GitHubAuth.Users))
+								savedTeam.GitHubAuth = gitHubAuth
 								return savedTeam, nil
 							}
 
@@ -296,7 +304,7 @@ var _ = Describe("Auth API", func() {
 
 						It("updates the GitHub auth for that team", func() {
 							Expect(response.StatusCode).To(Equal(http.StatusOK))
-							Expect(teamDB.UpdateTeamGitHubAuthCallCount()).To(Equal(1))
+							Expect(teamDB.UpdateGitHubAuthCallCount()).To(Equal(1))
 						})
 					})
 				})
@@ -304,12 +312,9 @@ var _ = Describe("Auth API", func() {
 
 			Context("when team does not exist", func() {
 				BeforeEach(func() {
-					teamDB.GetTeamByNameStub = func(submittedName string) (db.SavedTeam, bool, error) {
-						Expect(submittedName).To(Equal(teamName))
-						return db.SavedTeam{}, false, nil
-					}
+					teamDB.GetTeamReturns(db.SavedTeam{}, false, nil)
 
-					teamDB.SaveTeamStub = func(submittedTeam db.Team) (db.SavedTeam, error) {
+					teamsDB.CreateTeamStub = func(submittedTeam db.Team) (db.SavedTeam, error) {
 						team.Name = teamName
 						atcDBTeamEquality(team, submittedTeam)
 						return savedTeam, nil
@@ -329,12 +334,12 @@ var _ = Describe("Auth API", func() {
 					"name": "team venture"
 				}`))
 
-					Expect(teamDB.SaveTeamCallCount()).To(Equal(1))
+					Expect(teamsDB.CreateTeamCallCount()).To(Equal(1))
 				})
 
 				Context("when there's a problem saving teams", func() {
 					BeforeEach(func() {
-						teamDB.SaveTeamReturns(db.SavedTeam{}, errors.New("Do not be too hasty in entering that room. I had Taco Bell for lunch!"))
+						teamsDB.CreateTeamReturns(db.SavedTeam{}, errors.New("Do not be too hasty in entering that room. I had Taco Bell for lunch!"))
 					})
 
 					It("returns 500 Internal Server Error", func() {
@@ -366,7 +371,7 @@ var _ = Describe("Auth API", func() {
 
 						It("updates the basic auth for that team", func() {
 							Expect(response.StatusCode).To(Equal(http.StatusCreated))
-							Expect(teamDB.SaveTeamCallCount()).To(Equal(1))
+							Expect(teamsDB.CreateTeamCallCount()).To(Equal(1))
 						})
 					})
 
@@ -377,7 +382,7 @@ var _ = Describe("Auth API", func() {
 
 						It("updates the GitHub auth for that team", func() {
 							Expect(response.StatusCode).To(Equal(http.StatusCreated))
-							Expect(teamDB.SaveTeamCallCount()).To(Equal(1))
+							Expect(teamsDB.CreateTeamCallCount()).To(Equal(1))
 						})
 					})
 				})

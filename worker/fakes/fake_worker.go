@@ -4,6 +4,7 @@ package fakes
 import (
 	"os"
 	"sync"
+	"time"
 
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/worker"
@@ -47,6 +48,15 @@ type FakeWorker struct {
 		result1 worker.Container
 		result2 bool
 		result3 error
+	}
+	FindResourceTypeByPathStub        func(path string) (atc.WorkerResourceType, bool)
+	findResourceTypeByPathMutex       sync.RWMutex
+	findResourceTypeByPathArgsForCall []struct {
+		path string
+	}
+	findResourceTypeByPathReturns struct {
+		result1 atc.WorkerResourceType
+		result2 bool
 	}
 	FindVolumeStub        func(lager.Logger, worker.VolumeSpec) (worker.Volume, bool, error)
 	findVolumeMutex       sync.RWMutex
@@ -136,6 +146,12 @@ type FakeWorker struct {
 	nameArgsForCall []struct{}
 	nameReturns     struct {
 		result1 string
+	}
+	UptimeStub        func() time.Duration
+	uptimeMutex       sync.RWMutex
+	uptimeArgsForCall []struct{}
+	uptimeReturns     struct {
+		result1 time.Duration
 	}
 }
 
@@ -246,6 +262,39 @@ func (fake *FakeWorker) LookupContainerReturns(result1 worker.Container, result2
 		result2 bool
 		result3 error
 	}{result1, result2, result3}
+}
+
+func (fake *FakeWorker) FindResourceTypeByPath(path string) (atc.WorkerResourceType, bool) {
+	fake.findResourceTypeByPathMutex.Lock()
+	fake.findResourceTypeByPathArgsForCall = append(fake.findResourceTypeByPathArgsForCall, struct {
+		path string
+	}{path})
+	fake.findResourceTypeByPathMutex.Unlock()
+	if fake.FindResourceTypeByPathStub != nil {
+		return fake.FindResourceTypeByPathStub(path)
+	} else {
+		return fake.findResourceTypeByPathReturns.result1, fake.findResourceTypeByPathReturns.result2
+	}
+}
+
+func (fake *FakeWorker) FindResourceTypeByPathCallCount() int {
+	fake.findResourceTypeByPathMutex.RLock()
+	defer fake.findResourceTypeByPathMutex.RUnlock()
+	return len(fake.findResourceTypeByPathArgsForCall)
+}
+
+func (fake *FakeWorker) FindResourceTypeByPathArgsForCall(i int) string {
+	fake.findResourceTypeByPathMutex.RLock()
+	defer fake.findResourceTypeByPathMutex.RUnlock()
+	return fake.findResourceTypeByPathArgsForCall[i].path
+}
+
+func (fake *FakeWorker) FindResourceTypeByPathReturns(result1 atc.WorkerResourceType, result2 bool) {
+	fake.FindResourceTypeByPathStub = nil
+	fake.findResourceTypeByPathReturns = struct {
+		result1 atc.WorkerResourceType
+		result2 bool
+	}{result1, result2}
 }
 
 func (fake *FakeWorker) FindVolume(arg1 lager.Logger, arg2 worker.VolumeSpec) (worker.Volume, bool, error) {
@@ -556,6 +605,30 @@ func (fake *FakeWorker) NameReturns(result1 string) {
 	fake.NameStub = nil
 	fake.nameReturns = struct {
 		result1 string
+	}{result1}
+}
+
+func (fake *FakeWorker) Uptime() time.Duration {
+	fake.uptimeMutex.Lock()
+	fake.uptimeArgsForCall = append(fake.uptimeArgsForCall, struct{}{})
+	fake.uptimeMutex.Unlock()
+	if fake.UptimeStub != nil {
+		return fake.UptimeStub()
+	} else {
+		return fake.uptimeReturns.result1
+	}
+}
+
+func (fake *FakeWorker) UptimeCallCount() int {
+	fake.uptimeMutex.RLock()
+	defer fake.uptimeMutex.RUnlock()
+	return len(fake.uptimeArgsForCall)
+}
+
+func (fake *FakeWorker) UptimeReturns(result1 time.Duration) {
+	fake.UptimeStub = nil
+	fake.uptimeReturns = struct {
+		result1 time.Duration
 	}{result1}
 }
 

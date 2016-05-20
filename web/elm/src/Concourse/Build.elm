@@ -1,4 +1,4 @@
-module Concourse.Build where
+module Concourse.Build exposing (..)
 
 import Date exposing (Date)
 import Http
@@ -14,6 +14,7 @@ type alias Build =
   , job : Maybe BuildJob
   , status : BuildStatus
   , duration : BuildDuration
+  , reapTime : Maybe Date
   }
 
 type alias BuildId =
@@ -21,6 +22,7 @@ type alias BuildId =
 
 type alias BuildJob =
   { name : String
+  , teamName : String
   , pipelineName : String
   }
 
@@ -49,7 +51,7 @@ abort buildId =
 fetchJobBuilds : BuildJob -> Maybe Page -> Task Http.Error (Paginated Build)
 fetchJobBuilds job page =
   let
-    url = "/api/v1/pipelines/" ++ job.pipelineName ++ "/jobs/" ++ job.name ++ "/builds"
+    url = "/api/v1/teams/" ++ job.teamName ++ "/pipelines/" ++ job.pipelineName ++ "/jobs/" ++ job.name ++ "/builds"
   in
     Concourse.Pagination.fetch decode url page
 
@@ -59,21 +61,23 @@ url build =
     Nothing ->
       "/builds/" ++ toString build.id
 
-    Just {name, pipelineName} ->
-      "/pipelines/" ++ pipelineName ++ "/jobs/" ++ name ++ "/builds/" ++ build.name
+    Just {name, teamName, pipelineName} ->
+      "/teams/" ++ teamName ++ "/pipelines/" ++ pipelineName ++ "/jobs/" ++ name ++ "/builds/" ++ build.name
 
 decode : Json.Decode.Decoder Build
 decode =
-  Json.Decode.object5 Build
+  Json.Decode.object6 Build
     ("id" := Json.Decode.int)
     ("name" := Json.Decode.string)
-    (Json.Decode.maybe (Json.Decode.object2 BuildJob
+    (Json.Decode.maybe (Json.Decode.object3 BuildJob
       ("job_name" := Json.Decode.string)
+      ("team_name" := Json.Decode.string)
       ("pipeline_name" := Json.Decode.string)))
     ("status" := Concourse.BuildStatus.decode)
     (Json.Decode.object2 BuildDuration
       (Json.Decode.maybe ("start_time" := (Json.Decode.map dateFromSeconds Json.Decode.float)))
       (Json.Decode.maybe ("end_time" := (Json.Decode.map dateFromSeconds Json.Decode.float))))
+    (Json.Decode.maybe ("reap_time" := (Json.Decode.map dateFromSeconds Json.Decode.float)))
 
 handleResponse : Http.Response -> Task Http.Error ()
 handleResponse response =

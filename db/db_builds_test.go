@@ -30,10 +30,10 @@ var _ = Describe("Keeping track of builds", func() {
 
 		sqlDB := db.NewSQL(dbConn, bus)
 
-		pipelineDBFactory := db.NewPipelineDBFactory(dbConn, bus, sqlDB)
-
-		team, err := sqlDB.SaveTeam(db.Team{Name: "some-team"})
+		_, err := sqlDB.CreateTeam(db.Team{Name: "some-team"})
 		Expect(err).NotTo(HaveOccurred())
+		teamDBFactory := db.NewTeamDBFactory(dbConn)
+		teamDB := teamDBFactory.GetTeamDB("some-team")
 
 		config := atc.Config{
 			Jobs: atc.JobConfigs{
@@ -60,10 +60,11 @@ var _ = Describe("Keeping track of builds", func() {
 			},
 		}
 
-		pipeline, _, err = sqlDB.SaveConfig(team.Name, "some-pipeline", config, db.ConfigVersion(1), db.PipelineUnpaused)
+		pipeline, _, err = teamDB.SaveConfig("some-pipeline", config, db.ConfigVersion(1), db.PipelineUnpaused)
 		Expect(err).NotTo(HaveOccurred())
-		pipelineDB, err = pipelineDBFactory.BuildWithTeamNameAndName(team.Name, "some-pipeline")
-		Expect(err).NotTo(HaveOccurred())
+
+		pipelineDBFactory := db.NewPipelineDBFactory(dbConn, bus)
+		pipelineDB = pipelineDBFactory.Build(pipeline)
 
 		database = sqlDB
 	})
@@ -235,6 +236,7 @@ var _ = Describe("Keeping track of builds", func() {
 			buildPrep.PausedPipeline = db.BuildPreparationStatusBlocking
 			buildPrep.Inputs["banana"] = "doesnt matter"
 			buildPrep.InputsSatisfied = db.BuildPreparationStatusNotBlocking
+			buildPrep.MissingInputReasons = map[string]string{"some-input": "some missing reason"}
 
 			err = database.UpdateBuildPreparation(buildPrep)
 			Expect(err).NotTo(HaveOccurred())
@@ -265,7 +267,8 @@ var _ = Describe("Keeping track of builds", func() {
 					"banana": db.BuildPreparationStatusNotBlocking,
 					"potato": db.BuildPreparationStatusNotBlocking,
 				},
-				InputsSatisfied: db.BuildPreparationStatusBlocking,
+				InputsSatisfied:     db.BuildPreparationStatusBlocking,
+				MissingInputReasons: map[string]string{},
 			}
 
 			err = pipelineDB.UpdateBuildPreparation(originalBuildPrep)

@@ -75,10 +75,7 @@ func HashResourceConfig(checkType string, source atc.Source) string {
 }
 
 type DB interface {
-	SaveTeam(team Team) (SavedTeam, error)
-	GetTeamByName(teamName string) (SavedTeam, bool, error)
-	UpdateTeamBasicAuth(team Team) (SavedTeam, error)
-	UpdateTeamGitHubAuth(team Team) (SavedTeam, error)
+	CreateTeam(team Team) (SavedTeam, error)
 	CreateDefaultTeamIfNotExists() error
 	DeleteTeamByName(teamName string) error
 
@@ -98,7 +95,7 @@ type DB interface {
 
 	LeaseBuildTracking(logger lager.Logger, buildID int, interval time.Duration) (Lease, bool, error)
 	LeaseBuildScheduling(logger lager.Logger, buildID int, interval time.Duration) (Lease, bool, error)
-	LeaseCacheInvalidation(logger lager.Logger, interval time.Duration) (Lease, bool, error)
+	GetLease(logger lager.Logger, taskName string, interval time.Duration) (Lease, bool, error)
 
 	StartBuild(buildID int, pipelineID int, engineName, engineMetadata string) (bool, error)
 	FinishBuild(buildID int, pipelineID int, status Status) error
@@ -109,6 +106,7 @@ type DB interface {
 
 	GetBuildEvents(buildID int, from uint) (EventSource, error)
 	SaveBuildEvent(buildID int, pipelineID int, event atc.Event) error
+	DeleteBuildEventsByBuildIDs(buildIDs []int) error
 
 	SaveBuildEngineMetadata(buildID int, engineMetadata string) error
 
@@ -121,7 +119,7 @@ type DB interface {
 
 	FindContainersByDescriptors(Container) ([]SavedContainer, error)
 	GetContainer(string) (SavedContainer, bool, error)
-	CreateContainer(Container, time.Duration) (SavedContainer, error)
+	CreateContainer(Container, time.Duration, time.Duration) (SavedContainer, error)
 	FindContainerByIdentifier(ContainerIdentifier) (SavedContainer, bool, error)
 	UpdateExpiresAtOnContainer(handle string, ttl time.Duration) error
 	ReapContainer(handle string) error
@@ -136,6 +134,7 @@ type DB interface {
 	ReapVolume(string) error
 	SetVolumeTTL(string, time.Duration) error
 	GetVolumeTTL(volumeHandle string) (time.Duration, bool, error)
+	SetVolumeSize(string, uint) error
 	GetVolumesForOneOffBuildImageResources() ([]SavedVolume, error)
 
 	SaveImageResourceVersion(buildID int, planID atc.PlanID, identifier ResourceCacheIdentifier) error
@@ -147,23 +146,6 @@ type DB interface {
 type Notifier interface {
 	Notify() <-chan struct{}
 	Close() error
-}
-
-//go:generate counterfeiter . PipelinesDB
-
-type PipelinesDB interface {
-	GetAllPipelines() ([]SavedPipeline, error)
-	GetPipelineByID(pipelineID int) (SavedPipeline, error)
-	GetPipelineByTeamNameAndName(teamName string, pipelineName string) (SavedPipeline, error)
-
-	OrderPipelines([]string) error
-}
-
-//go:generate counterfeiter . ConfigDB
-
-type ConfigDB interface {
-	GetConfig(teamName, pipelineName string) (atc.Config, atc.RawConfig, ConfigVersion, error)
-	SaveConfig(string, string, atc.Config, ConfigVersion, PipelinePausedState) (SavedPipeline, bool, error)
 }
 
 //ConfigVersion is a sequence identifier used for compare-and-swap
@@ -228,4 +210,5 @@ type WorkerInfo struct {
 	Platform         string
 	Tags             []string
 	Name             string
+	StartTime        int64
 }

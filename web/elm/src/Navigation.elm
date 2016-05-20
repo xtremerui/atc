@@ -1,7 +1,7 @@
-module Navigation where
+module Navigation exposing (..)
 
-import Effects exposing (Effects)
 import Html exposing (Html)
+import Html.App
 import Html.Attributes exposing (action, class, classList, href, id, method, title, disabled, attribute)
 import Http
 import Task
@@ -10,7 +10,7 @@ import Concourse.Job exposing (Job)
 import Concourse.Pipeline exposing (Pipeline)
 
 type alias CurrentState =
-  { job : Maybe { name : String, pipelineName : String }
+  { job : Maybe { name : String, teamName : String, pipelineName : String }
   }
 
 type alias Model subModel =
@@ -25,33 +25,33 @@ type Action subAction
   | PipelinesFetched (Result Http.Error (List Pipeline))
   -- | JobsFetched (Result Http.Error (List Job))
 
-init : CurrentState -> (subModel, Effects subAction) -> (Model subModel, Effects (Action subAction))
-init currentState (subModel, subEffects) =
+init : CurrentState -> (subModel, Cmd subAction) -> (Model subModel, Cmd (Action subAction))
+init currentState (subModel, subCmd) =
   ( Model subModel currentState [] []
-  , Effects.batch
-      [ Effects.map SubAction subEffects
+  , Cmd.batch
+      [ Cmd.map SubAction subCmd
       , fetchPipelines
       ]
   )
 
-update : (subAction -> subModel -> (subModel, Effects subAction)) -> Action subAction -> Model subModel -> (Model subModel, Effects (Action subAction))
+update : (subAction -> subModel -> (subModel, Cmd subAction)) -> Action subAction -> Model subModel -> (Model subModel, Cmd (Action subAction))
 update subUpdate action model =
   case action of
     SubAction subAction ->
       let
-        (subModel, subEffects) = subUpdate subAction model.subModel
+        (subModel, subCmd) = subUpdate subAction model.subModel
       in
-        ({ model | subModel = subModel }, Effects.map SubAction subEffects)
+        ({ model | subModel = subModel }, Cmd.map SubAction subCmd)
 
     PipelinesFetched (Err err) ->
       Debug.log ("failed to fetch pipelines: " ++ toString err) <|
-        (model, Effects.none)
+        (model, Cmd.none)
 
     PipelinesFetched (Ok pipelines) ->
-      ({ model | pipelines = pipelines }, Effects.none)
+      ({ model | pipelines = pipelines }, Cmd.none)
 
-view : (Signal.Address subAction -> subModel -> Html) -> Signal.Address (Action subAction) -> Model subModel -> Html
-view subView actions model =
+view : (subModel -> Html subAction) -> Model subModel -> Html (Action subAction)
+view subView model =
   Html.div [class "nav-page"] [
     Html.nav [class "nav-sidebar"] [
       Html.form [class "magic-search"] [
@@ -459,13 +459,11 @@ view subView actions model =
     ],
 
     Html.div [class "nav-content"] [
-      subView (Signal.forwardTo actions SubAction) model.subModel
+      Html.App.map SubAction (subView model.subModel)
     ]
   ]
 
-fetchPipelines : Effects (Action subAction)
+fetchPipelines : Cmd (Action subAction)
 fetchPipelines =
-  Concourse.Pipeline.fetchAll
-    |> Task.toResult
-    |> Task.map PipelinesFetched
-    |> Effects.task
+  Cmd.map PipelinesFetched << Task.perform Err Ok <|
+    Concourse.Pipeline.fetchAll

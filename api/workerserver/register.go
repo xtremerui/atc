@@ -45,14 +45,14 @@ func (s *Server) RegisterWorker(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	metric.WorkerContainers{
-		WorkerAddr: registration.GardenAddr,
-		Containers: registration.ActiveContainers,
-	}.Emit(s.logger)
-
 	if registration.Name == "" {
 		registration.Name = registration.GardenAddr
 	}
+
+	metric.WorkerContainers{
+		WorkerName: registration.Name,
+		Containers: registration.ActiveContainers,
+	}.Emit(s.logger)
 
 	_, err = s.db.SaveWorker(db.WorkerInfo{
 		GardenAddr:       registration.GardenAddr,
@@ -65,6 +65,7 @@ func (s *Server) RegisterWorker(w http.ResponseWriter, r *http.Request) {
 		Platform:         registration.Platform,
 		Tags:             registration.Tags,
 		Name:             registration.Name,
+		StartTime:        registration.StartTime,
 	}, ttl)
 	if err != nil {
 		logger.Error("failed-to-save-worker", err)

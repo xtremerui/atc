@@ -3,6 +3,7 @@ package atccmd
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -16,12 +17,14 @@ import (
 	"github.com/concourse/atc/api/buildserver"
 	"github.com/concourse/atc/auth"
 	"github.com/concourse/atc/auth/provider"
+	"github.com/concourse/atc/buildreaper"
 	"github.com/concourse/atc/builds"
 	"github.com/concourse/atc/config"
 	"github.com/concourse/atc/db"
 	"github.com/concourse/atc/db/migrations"
 	"github.com/concourse/atc/engine"
 	"github.com/concourse/atc/exec"
+	"github.com/concourse/atc/leaserunner"
 	"github.com/concourse/atc/lostandfound"
 	"github.com/concourse/atc/metric"
 	"github.com/concourse/atc/pipelines"
@@ -32,6 +35,7 @@ import (
 	"github.com/concourse/atc/web/webhandler"
 	"github.com/concourse/atc/worker"
 	"github.com/concourse/atc/worker/image"
+	"github.com/concourse/atc/worker/transport"
 	"github.com/concourse/atc/wrappa"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
@@ -47,11 +51,15 @@ import (
 )
 
 type ATCCommand struct {
-	BindIP   IPFlag `long:"bind-ip"   default:"0.0.0.0" description:"IP address on which to listen for web traffic."`
-	BindPort uint16 `long:"bind-port" default:"8080"    description:"Port on which to listen for web traffic."`
+	BindIP      IPFlag `long:"bind-ip"   default:"0.0.0.0" description:"IP address on which to listen for web traffic."`
+	BindPort    uint16 `long:"bind-port" default:"8080"    description:"Port on which to listen for HTTP traffic."`
+	TLSBindPort uint16 `long:"tls-bind-port" description:"Port on which to listen for HTTPS traffic."`
 
 	ExternalURL URLFlag `long:"external-url" default:"http://127.0.0.1:8080" description:"URL used to reach any ATC from the outside world."`
 	PeerURL     URLFlag `long:"peer-url"     default:"http://127.0.0.1:8080" description:"URL used to reach this ATC from other ATCs in the cluster."`
+
+	TLSCert FileFlag `long:"tls-cert" description:"File containing an SSL certificate."`
+	TLSKey  FileFlag `long:"tls-key" description:"File containing an RSA private key, used to encrypt HTTPS traffic."`
 
 	OAuthBaseURL URLFlag `long:"oauth-base-url" description:"URL used as the base of OAuth redirect URIs. If not specified, the external URL is used."`
 
@@ -134,16 +142,20 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 
 	cmd.configureMetrics(logger)
 
-	sqlDB, pipelineDBFactory, err := cmd.constructDB(logger)
+	dbConn, err := cmd.constructDBConn(logger)
 	if err != nil {
 		return nil, err
 	}
+	listener := pq.NewListener(cmd.PostgresDataSource, time.Second, time.Minute, nil)
+	bus := db.NewNotificationsBus(listener, dbConn)
 
+	sqlDB := db.NewSQL(dbConn, bus)
 	trackerFactory := resource.TrackerFactory{}
 	workerClient := cmd.constructWorkerPool(logger, sqlDB, trackerFactory)
 
 	tracker := resource.NewTracker(workerClient)
-	engine := cmd.constructEngine(sqlDB, workerClient, tracker)
+	teamDBFactory := db.NewTeamDBFactory(dbConn)
+	engine := cmd.constructEngine(sqlDB, workerClient, tracker, teamDBFactory)
 
 	radarSchedulerFactory := pipelines.NewRadarSchedulerFactory(
 		tracker,
@@ -168,9 +180,9 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 		return nil, err
 	}
 
-	authValidator := cmd.constructValidator(signingKey, sqlDB)
+	authValidator := cmd.constructValidator(signingKey, teamDBFactory)
 
-	err = cmd.updateBasicAuthCredentials(sqlDB)
+	err = cmd.updateBasicAuthCredentials(teamDBFactory)
 	if err != nil {
 		return nil, err
 	}
@@ -179,13 +191,13 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 		PublicKey: &signingKey.PublicKey,
 	}
 
-	err = cmd.configureOAuthProviders(logger, sqlDB)
+	err = cmd.configureOAuthProviders(logger, teamDBFactory)
 	if err != nil {
 		return nil, err
 	}
 
 	providerFactory := provider.NewOAuthFactory(
-		sqlDB,
+		teamDBFactory,
 		cmd.oauthBaseURL(),
 		auth.OAuthRoutes,
 		auth.OAuthCallback,
@@ -196,10 +208,13 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 
 	drain := make(chan struct{})
 
+	pipelineDBFactory := db.NewPipelineDBFactory(dbConn, bus)
+
 	apiHandler, err := cmd.constructAPIHandler(
 		logger,
 		reconfigurableSink,
 		sqlDB,
+		teamDBFactory,
 		authValidator,
 		jwtReader,
 		providerFactory,
@@ -218,8 +233,8 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 	oauthHandler, err := auth.NewOAuthHandler(
 		logger,
 		providerFactory,
+		teamDBFactory,
 		signingKey,
-		sqlDB,
 	)
 	if err != nil {
 		return nil, err
@@ -273,7 +288,7 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 			Clock:    clock.NewClock(),
 		}},
 
-		{"lostandfound", lostandfound.NewRunner(
+		{"lostandfound", leaserunner.NewRunner(
 			logger.Session("lost-and-found"),
 			lostandfound.NewBaggageCollector(
 				logger.Session("baggage-collector"),
@@ -283,13 +298,49 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 				cmd.OldResourceGracePeriod,
 				24*time.Hour,
 			),
+			"baggage-collector",
 			sqlDB,
 			clock.NewClock(),
 			cmd.ResourceCacheCleanupInterval,
 		)},
+
+		{"buildreaper", leaserunner.NewRunner(
+			logger.Session("build-reaper-runner"),
+			buildreaper.NewBuildReaper(
+				logger.Session("build-reaper"),
+				sqlDB,
+				pipelineDBFactory,
+				500,
+			),
+			"build-reaper",
+			sqlDB,
+			clock.NewClock(),
+			30*time.Second,
+		)},
 	}
 
 	members = cmd.appendStaticWorker(logger, sqlDB, members)
+
+	if cmd.TLSCert != "" {
+		cert, err := tls.LoadX509KeyPair(string(cmd.TLSCert), string(cmd.TLSKey))
+
+		if err != nil {
+			return nil, err
+		}
+
+		tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
+
+		members = append(members,
+			grouper.Member{"web-tls", http_server.NewTLSServer(
+				cmd.tlsBindAddr(),
+				cmd.constructHTTPHandler(
+					webHandler,
+					apiHandler,
+					oauthHandler,
+				),
+				tlsConfig,
+			)})
+	}
 
 	return onReady(grouper.NewParallel(os.Interrupt, members), func() {
 		logger.Info("listening", lager.Data{
@@ -383,6 +434,23 @@ func (cmd *ATCCommand) validate() error {
 		}
 	}
 
+	tlsFlagCount := 0
+	if cmd.TLSBindPort != 0 {
+		tlsFlagCount++
+	}
+	if cmd.TLSCert != "" {
+		tlsFlagCount++
+	}
+	if cmd.TLSKey != "" {
+		tlsFlagCount++
+	}
+	if tlsFlagCount != 0 && tlsFlagCount != 3 {
+		errs = multierror.Append(
+			errs,
+			errors.New("must specify --tls-bind-port, --tls-cert, --tls-key to use TLS"),
+		)
+	}
+
 	return errs.ErrorOrNil()
 }
 
@@ -392,6 +460,10 @@ func (cmd *ATCCommand) bindAddr() string {
 
 func (cmd *ATCCommand) debugBindAddr() string {
 	return fmt.Sprintf("%s:%d", cmd.DebugBindIP, cmd.DebugBindPort)
+}
+
+func (cmd *ATCCommand) tlsBindAddr() string {
+	return fmt.Sprintf("%s:%d", cmd.BindIP, cmd.TLSBindPort)
 }
 
 func (cmd *ATCCommand) constructLogger() (lager.Logger, *lager.ReconfigurableSink) {
@@ -430,25 +502,19 @@ func (cmd *ATCCommand) configureMetrics(logger lager.Logger) {
 	}
 }
 
-func (cmd *ATCCommand) constructDB(logger lager.Logger) (*db.SQLDB, db.PipelineDBFactory, error) {
+func (cmd *ATCCommand) constructDBConn(logger lager.Logger) (db.Conn, error) {
 	driverName := "connection-counting"
 	metric.SetupConnectionCountingDriver("postgres", cmd.PostgresDataSource, driverName)
 
 	dbConn, err := migrations.LockDBAndMigrate(logger.Session("db.migrations"), driverName, cmd.PostgresDataSource)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to migrate database: %s", err)
+		return nil, fmt.Errorf("failed to migrate database: %s", err)
 	}
-
-	listener := pq.NewListener(cmd.PostgresDataSource, time.Second, time.Minute, nil)
-	bus := db.NewNotificationsBus(listener, dbConn)
 
 	explainDBConn := db.Explain(logger, dbConn, clock.NewClock(), 500*time.Millisecond)
 	countingDBConn := metric.CountQueries(explainDBConn)
-	sqlDB := db.NewSQL(countingDBConn, bus)
 
-	pipelineDBFactory := db.NewPipelineDBFactory(explainDBConn, bus, sqlDB)
-
-	return sqlDB, pipelineDBFactory, err
+	return countingDBConn, nil
 }
 
 func (cmd *ATCCommand) constructWorkerPool(logger lager.Logger, sqlDB *db.SQLDB, trackerFactory resource.TrackerFactory) worker.Client {
@@ -457,7 +523,7 @@ func (cmd *ATCCommand) constructWorkerPool(logger lager.Logger, sqlDB *db.SQLDB,
 			logger,
 			sqlDB,
 			keepaliveDialer,
-			worker.ExponentialRetryPolicy{
+			transport.ExponentialRetryPolicy{
 				Timeout: 5 * time.Minute,
 			},
 			image.NewFetcher(trackerFactory),
@@ -490,24 +556,27 @@ func (cmd *ATCCommand) loadOrGenerateSigningKey() (*rsa.PrivateKey, error) {
 	return signingKey, nil
 }
 
-func (cmd *ATCCommand) configureOAuthProviders(logger lager.Logger, sqlDB db.DB) error {
+func (cmd *ATCCommand) configureOAuthProviders(logger lager.Logger, teamDBFactory db.TeamDBFactory) error {
 	var err error
 	team := db.Team{
 		Name: atc.DefaultTeamName,
 	}
 
-	gitHubTeams := []db.GitHubTeam{}
-	for _, gitHubTeam := range cmd.GitHubAuth.Teams {
-		gitHubTeams = append(gitHubTeams, db.GitHubTeam{
-			TeamName:         gitHubTeam.TeamName,
-			OrganizationName: gitHubTeam.OrganizationName,
-		})
-	}
+	gitHubAuth := db.GitHubAuth{}
 
 	if len(cmd.GitHubAuth.Organizations) > 0 ||
-		len(gitHubTeams) > 0 ||
+		len(cmd.GitHubAuth.Teams) > 0 ||
 		len(cmd.GitHubAuth.Users) > 0 {
-		gitHubAuth := db.GitHubAuth{
+
+		gitHubTeams := []db.GitHubTeam{}
+		for _, gitHubTeam := range cmd.GitHubAuth.Teams {
+			gitHubTeams = append(gitHubTeams, db.GitHubTeam{
+				TeamName:         gitHubTeam.TeamName,
+				OrganizationName: gitHubTeam.OrganizationName,
+			})
+		}
+
+		gitHubAuth = db.GitHubAuth{
 			ClientID:      cmd.GitHubAuth.ClientID,
 			ClientSecret:  cmd.GitHubAuth.ClientSecret,
 			Organizations: cmd.GitHubAuth.Organizations,
@@ -517,12 +586,10 @@ func (cmd *ATCCommand) configureOAuthProviders(logger lager.Logger, sqlDB db.DB)
 			TokenURL:      cmd.GitHubAuth.TokenURL,
 			APIURL:        cmd.GitHubAuth.APIURL,
 		}
-		team.GitHubAuth = gitHubAuth
-	} else {
-		team.GitHubAuth = db.GitHubAuth{}
 	}
 
-	_, err = sqlDB.UpdateTeamGitHubAuth(team)
+	teamDB := teamDBFactory.GetTeamDB(team.Name)
+	_, err = teamDB.UpdateGitHubAuth(gitHubAuth)
 	if err != nil {
 		return err
 	}
@@ -530,7 +597,7 @@ func (cmd *ATCCommand) configureOAuthProviders(logger lager.Logger, sqlDB db.DB)
 	return nil
 }
 
-func (cmd *ATCCommand) constructValidator(signingKey *rsa.PrivateKey, sqlDB db.DB) auth.Validator {
+func (cmd *ATCCommand) constructValidator(signingKey *rsa.PrivateKey, teamDBFactory db.TeamDBFactory) auth.Validator {
 	if !cmd.authConfigured() {
 		return auth.NoopValidator{}
 	}
@@ -543,7 +610,7 @@ func (cmd *ATCCommand) constructValidator(signingKey *rsa.PrivateKey, sqlDB db.D
 	if cmd.BasicAuth.Username != "" && cmd.BasicAuth.Password != "" {
 		validator = auth.ValidatorBasket{
 			auth.BasicAuthValidator{
-				DB: sqlDB,
+				TeamDBFactory: teamDBFactory,
 			},
 			jwtValidator,
 		}
@@ -554,21 +621,12 @@ func (cmd *ATCCommand) constructValidator(signingKey *rsa.PrivateKey, sqlDB db.D
 	return validator
 }
 
-func (cmd *ATCCommand) updateBasicAuthCredentials(sqlDB db.DB) error {
-	var team db.Team
-	if cmd.BasicAuth.Username != "" && cmd.BasicAuth.Password != "" {
-		team = db.Team{
-			Name: atc.DefaultTeamName,
-			BasicAuth: db.BasicAuth{
-				BasicAuthUsername: cmd.BasicAuth.Username,
-				BasicAuthPassword: cmd.BasicAuth.Password,
-			},
-		}
-	} else {
-		team = db.Team{Name: atc.DefaultTeamName}
-	}
-
-	_, err := sqlDB.UpdateTeamBasicAuth(team)
+func (cmd *ATCCommand) updateBasicAuthCredentials(teamDBFactory db.TeamDBFactory) error {
+	teamDB := teamDBFactory.GetTeamDB(atc.DefaultTeamName)
+	_, err := teamDB.UpdateBasicAuth(db.BasicAuth{
+		BasicAuthUsername: cmd.BasicAuth.Username,
+		BasicAuthPassword: cmd.BasicAuth.Password,
+	})
 	return err
 }
 
@@ -576,6 +634,7 @@ func (cmd *ATCCommand) constructEngine(
 	sqlDB *db.SQLDB,
 	workerClient worker.Client,
 	tracker resource.Tracker,
+	teamDBFactory db.TeamDBFactory,
 ) engine.Engine {
 	gardenFactory := exec.NewGardenFactory(
 		workerClient,
@@ -587,6 +646,7 @@ func (cmd *ATCCommand) constructEngine(
 	execV2Engine := engine.NewExecEngine(
 		gardenFactory,
 		engine.NewBuildDelegateFactory(sqlDB),
+		teamDBFactory,
 		sqlDB,
 		cmd.ExternalURL.String(),
 	)
@@ -626,6 +686,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 	logger lager.Logger,
 	reconfigurableSink *lager.ReconfigurableSink,
 	sqlDB *db.SQLDB,
+	teamDBFactory db.TeamDBFactory,
 	authValidator auth.Validator,
 	userContextReader auth.UserContextReader,
 	providerFactory provider.OAuthFactory,
@@ -653,16 +714,14 @@ func (cmd *ATCCommand) constructAPIHandler(
 		cmd.oauthBaseURL(),
 
 		pipelineDBFactory,
+		teamDBFactory,
 
-		sqlDB, // authserver.AuthDB
-		sqlDB, // db.ConfigDB
+		sqlDB, // teamserver.TeamsDB
 		sqlDB, // buildserver.BuildsDB
 		sqlDB, // workerserver.WorkerDB
 		sqlDB, // containerserver.ContainerDB
 		sqlDB, // volumeserver.VolumesDB
 		sqlDB, // pipes.PipeDB
-		sqlDB, // db.PipelinesDB
-		sqlDB, // teamserver.TeamDB
 
 		config.ValidateConfig,
 		cmd.PeerURL.String(),

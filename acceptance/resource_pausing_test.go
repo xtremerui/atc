@@ -33,10 +33,10 @@ var _ = Describe("Resource Pausing", func() {
 
 		sqlDB = db.NewSQL(dbConn, bus)
 
-		atcProcess, atcPort = startATC(atcBin, 1, true, BASIC_AUTH)
-		err := sqlDB.DeleteTeamByName("main")
+		atcProcess, atcPort, _ = startATC(atcBin, 1, true, []string{}, BASIC_AUTH)
+		err := sqlDB.DeleteTeamByName(atc.DefaultTeamName)
 		Expect(err).NotTo(HaveOccurred())
-		team, err := sqlDB.SaveTeam(db.Team{
+		_, err = sqlDB.CreateTeam(db.Team{
 			Name: atc.DefaultTeamName,
 			BasicAuth: db.BasicAuth{
 				BasicAuthUsername: "admin",
@@ -45,8 +45,10 @@ var _ = Describe("Resource Pausing", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
+		teamDBFactory := db.NewTeamDBFactory(dbConn)
+		teamDB := teamDBFactory.GetTeamDB(atc.DefaultTeamName)
 		// job build data
-		_, _, err = sqlDB.SaveConfig(team.Name, "some-pipeline", atc.Config{
+		_, _, err = teamDB.SaveConfig("some-pipeline", atc.Config{
 			Jobs: atc.JobConfigs{
 				{
 					Name: "job-name",
@@ -63,12 +65,11 @@ var _ = Describe("Resource Pausing", func() {
 		}, db.ConfigVersion(1), db.PipelineUnpaused)
 		Expect(err).NotTo(HaveOccurred())
 
-		pipelineDBFactory := db.NewPipelineDBFactory(dbConn, bus, sqlDB)
-
-		var found bool
-		pipelineDB, found, err = pipelineDBFactory.BuildDefault()
+		savedPipeline, err := teamDB.GetPipelineByName("some-pipeline")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(found).To(BeTrue())
+
+		pipelineDBFactory := db.NewPipelineDBFactory(dbConn, bus)
+		pipelineDB = pipelineDBFactory.Build(savedPipeline)
 	})
 
 	AfterEach(func() {
@@ -106,7 +107,7 @@ var _ = Describe("Resource Pausing", func() {
 			Expect(page.FindByLink("resource-name").Click()).To(Succeed())
 
 			// resource detail -> paused resource detail
-			Eventually(page).Should(HaveURL(withPath("/pipelines/some-pipeline/resources/resource-name")))
+			Eventually(page).Should(HaveURL(withPath("/teams/main/pipelines/some-pipeline/resources/resource-name")))
 			Expect(page.Find("h1")).To(HaveText("resource-name"))
 
 			Authenticate(page, "admin", "password")

@@ -179,6 +179,14 @@ func validateJobs(c atc.Config) ([]Warning, error) {
 		if job.Name == "" {
 			errorMessages = append(errorMessages, identifier+" has no name")
 		}
+
+		if job.BuildLogsToRetain < 0 {
+			errorMessages = append(
+				errorMessages,
+				identifier+fmt.Sprintf(" has negative build_logs_to_retain: %d", job.BuildLogsToRetain),
+			)
+		}
+
 		planWarnings, planErrMessages := validatePlan(c, identifier+".plan", atc.PlanConfig{Do: &job.Plan})
 		warnings = append(warnings, planWarnings...)
 		errorMessages = append(errorMessages, planErrMessages...)
@@ -403,8 +411,15 @@ func validatePlan(c atc.Config, identifier string, plan atc.PlanConfig) ([]Warni
 	case plan.Task != "":
 		identifier = fmt.Sprintf("%s.task.%s", identifier, plan.Task)
 
-		if plan.TaskConfig == nil && plan.TaskConfigPath == "" {
+		if plan.TaskConfig == nil && plan.TaskConfigPath == "" && plan.ImageArtifactName == "" {
 			errorMessages = append(errorMessages, identifier+" does not specify any task configuration")
+		}
+
+		if plan.TaskConfig != nil && (plan.TaskConfig.Image != "" || plan.TaskConfig.ImageResource != nil) && plan.ImageArtifactName != "" {
+			warnings = append(warnings, Warning{
+				Type:    "pipeline",
+				Message: identifier + " specifies an image artifact to use as the container's image but also specifies an image or image resource in the task configuration; the image artifact takes precedence",
+			})
 		}
 
 		if plan.TaskConfig != nil && plan.TaskConfigPath != "" {

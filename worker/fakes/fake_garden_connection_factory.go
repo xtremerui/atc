@@ -15,13 +15,6 @@ type FakeGardenConnectionFactory struct {
 	buildConnectionReturns     struct {
 		result1 gconn.Connection
 	}
-	BuildConnectionFromDBStub        func() (gconn.Connection, error)
-	buildConnectionFromDBMutex       sync.RWMutex
-	buildConnectionFromDBArgsForCall []struct{}
-	buildConnectionFromDBReturns     struct {
-		result1 gconn.Connection
-		result2 error
-	}
 }
 
 func (fake *FakeGardenConnectionFactory) BuildConnection() gconn.Connection {
@@ -46,31 +39,6 @@ func (fake *FakeGardenConnectionFactory) BuildConnectionReturns(result1 gconn.Co
 	fake.buildConnectionReturns = struct {
 		result1 gconn.Connection
 	}{result1}
-}
-
-func (fake *FakeGardenConnectionFactory) BuildConnectionFromDB() (gconn.Connection, error) {
-	fake.buildConnectionFromDBMutex.Lock()
-	fake.buildConnectionFromDBArgsForCall = append(fake.buildConnectionFromDBArgsForCall, struct{}{})
-	fake.buildConnectionFromDBMutex.Unlock()
-	if fake.BuildConnectionFromDBStub != nil {
-		return fake.BuildConnectionFromDBStub()
-	} else {
-		return fake.buildConnectionFromDBReturns.result1, fake.buildConnectionFromDBReturns.result2
-	}
-}
-
-func (fake *FakeGardenConnectionFactory) BuildConnectionFromDBCallCount() int {
-	fake.buildConnectionFromDBMutex.RLock()
-	defer fake.buildConnectionFromDBMutex.RUnlock()
-	return len(fake.buildConnectionFromDBArgsForCall)
-}
-
-func (fake *FakeGardenConnectionFactory) BuildConnectionFromDBReturns(result1 gconn.Connection, result2 error) {
-	fake.BuildConnectionFromDBStub = nil
-	fake.buildConnectionFromDBReturns = struct {
-		result1 gconn.Connection
-		result2 error
-	}{result1, result2}
 }
 
 var _ worker.GardenConnectionFactory = new(FakeGardenConnectionFactory)

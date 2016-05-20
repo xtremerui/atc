@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/garden"
@@ -19,6 +20,7 @@ import (
 	rfakes "github.com/concourse/atc/resource/fakes"
 	"github.com/concourse/atc/worker"
 	wfakes "github.com/concourse/atc/worker/fakes"
+	bfakes "github.com/concourse/baggageclaim/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -39,9 +41,9 @@ var _ = Describe("GardenFactory", func() {
 		stderrBuf *gbytes.Buffer
 		fakeClock *fakeclock.FakeClock
 
-		sourceName SourceName = "some-source-name"
-
-		identifier = worker.Identifier{
+		sourceName        SourceName = "some-source-name"
+		imageArtifactName string
+		identifier        = worker.Identifier{
 			BuildID: 1234,
 			PlanID:  atc.PlanID("some-plan-id"),
 		}
@@ -104,6 +106,7 @@ var _ = Describe("GardenFactory", func() {
 
 			inputMapping = nil
 			outputMapping = nil
+			imageArtifactName = ""
 			fakeClock = fakeclock.NewFakeClock(time.Unix(0, 123))
 		})
 
@@ -120,6 +123,7 @@ var _ = Describe("GardenFactory", func() {
 				resourceTypes,
 				inputMapping,
 				outputMapping,
+				imageArtifactName,
 				fakeClock,
 			).Using(inStep, repo)
 
@@ -249,14 +253,15 @@ var _ = Describe("GardenFactory", func() {
 
 							Expect(delegate).To(Equal(taskDelegate))
 
-							taskSpec := spec.(worker.TaskContainerSpec)
-							Expect(taskSpec.Platform).To(Equal("some-platform"))
-							Expect(taskSpec.Image).To(Equal("some-image"))
-							Expect(taskSpec.ImageResource).To(Equal(&atc.ImageResource{
-								Type:   "docker",
-								Source: atc.Source{"some": "source"},
+							Expect(spec.Platform).To(Equal("some-platform"))
+							Expect(spec.ImageSpec).To(Equal(worker.ImageSpec{
+								ImageURL: "some-image",
+								ImageResource: &atc.ImageResource{
+									Type:   "docker",
+									Source: atc.Source{"some": "source"},
+								},
+								Privileged: false,
 							}))
-							Expect(taskSpec.Privileged).To(BeFalse())
 
 							Expect(actualResourceTypes).To(Equal(atc.ResourceTypes{
 								{
@@ -332,10 +337,15 @@ var _ = Describe("GardenFactory", func() {
 									EnvironmentVariables: []string{"SOME=params"},
 								}))
 
-								taskSpec := spec.(worker.TaskContainerSpec)
-								Expect(taskSpec.Platform).To(Equal("some-platform"))
-								Expect(taskSpec.Image).To(Equal("some-image"))
-								Expect(taskSpec.Privileged).To(BeTrue())
+								Expect(spec.Platform).To(Equal("some-platform"))
+								Expect(spec.ImageSpec).To(Equal(worker.ImageSpec{
+									ImageURL: "some-image",
+									ImageResource: &atc.ImageResource{
+										Type:   "docker",
+										Source: atc.Source{"some": "source"},
+									},
+									Privileged: true,
+								}))
 							})
 
 							It("runs the process as the specified user", func() {
@@ -436,8 +446,7 @@ var _ = Describe("GardenFactory", func() {
 
 									It("bind-mounts copy-on-write volumes to their destinations in the container", func() {
 										_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
-										taskSpec := spec.(worker.TaskContainerSpec)
-										Expect(taskSpec.Inputs).To(Equal([]worker.VolumeMount{
+										Expect(spec.Inputs).To(Equal([]worker.VolumeMount{
 											{
 												Volume:    inputVolume,
 												MountPath: "/tmp/build/a1f5c0c1/some-input-configured-path",
@@ -565,8 +574,7 @@ var _ = Describe("GardenFactory", func() {
 
 									It("bind-mounts copy-on-write volumes to their destinations in the container", func() {
 										_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
-										taskSpec := spec.(worker.TaskContainerSpec)
-										Expect(taskSpec.Inputs).To(Equal([]worker.VolumeMount{
+										Expect(spec.Inputs).To(Equal([]worker.VolumeMount{
 											{
 												Volume:    remappedInputVolume,
 												MountPath: "/tmp/build/a1f5c0c1/remapped-input",
@@ -791,11 +799,9 @@ var _ = Describe("GardenFactory", func() {
 
 												It("passes the created output volumes to the worker", func() {
 													_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
-													taskSpec, ok := spec.(worker.TaskContainerSpec)
-													Expect(ok).To(BeTrue())
 													var actualVolumes []worker.Volume
 													var actualPaths []string
-													for _, v := range taskSpec.Outputs {
+													for _, v := range spec.Outputs {
 														actualVolume, ok := v.Volume.(worker.Volume)
 														Expect(ok).To(BeTrue())
 														actualVolumes = append(actualVolumes, actualVolume)
@@ -1198,24 +1204,390 @@ var _ = Describe("GardenFactory", func() {
 										},
 									})
 								})
+							})
+						})
 
-								Context("when the output volume can be found on the worker", func() {
+						Context("when an image artifact name is specified", func() {
+							BeforeEach(func() {
+								imageArtifactName = "some-image-artifact"
+
+								fakeProcess.WaitReturns(0, nil)
+							})
+
+							Context("when the image artifact is registered in the source repo", func() {
+								var imageArtifactSource *fakes.FakeArtifactSource
+
+								BeforeEach(func() {
+									imageArtifactSource = new(fakes.FakeArtifactSource)
+									repo.RegisterSource("some-image-artifact", imageArtifactSource)
+								})
+
+								Context("when the image artifact is not found in a volume on the worker", func() {
+									var imageVolume *wfakes.FakeVolume
+									var imageCowVolume *wfakes.FakeVolume
+									var fakeBaggageClaimClient *bfakes.FakeClient
+									dummyReader := tar.NewReader(nil)
+
 									BeforeEach(func() {
-										fakeWorker.LookupVolumeReturns(fakeVolume, true, nil)
+										fakeBaggageClaimClient = new(bfakes.FakeClient)
+
+										imageVolume = new(wfakes.FakeVolume)
+										imageVolume.PathReturns("/var/vcap/some-path")
+										imageVolume.HandleReturns("some-handle")
+
+										imageCowVolume = new(wfakes.FakeVolume)
+										imageCowVolume.PathReturns("/var/vcap/some-cow-path")
+										imageCowVolume.HandleReturns("some-cow-handle")
+
+										imageArtifactSource.VolumeOnReturns(nil, false, nil)
+
+										imageVolumeChan := make(chan *wfakes.FakeVolume, 2)
+										imageVolumeChan <- imageVolume
+										imageVolumeChan <- imageCowVolume
+										fakeWorker.CreateVolumeStub = func(logger lager.Logger, spec worker.VolumeSpec) (worker.Volume, error) {
+											defer GinkgoRecover()
+											if iars, ok := spec.Strategy.(worker.ContainerRootFSStrategy); ok {
+												Expect(iars.Parent).To(Equal(imageVolume))
+												Expect(imageVolume.ReleaseCallCount()).To(BeZero())
+											}
+											return <-imageVolumeChan, nil
+										}
 									})
 
-									It("stores an artifact source in the repo that can be used to mount the volume", func() {
-										artifactSource, found := repo.SourceFor("specific-remapped-output")
-										Expect(found).To(BeTrue())
+									Context("when streaming the artifact source to the volume fails", func() {
+										var disaster error
+										BeforeEach(func() {
+											disaster = errors.New("this is bad")
+											imageArtifactSource.StreamToReturns(disaster)
+										})
 
-										actualVolume, found, err := artifactSource.VolumeOn(fakeWorker)
-										Expect(err).ToNot(HaveOccurred())
-										Expect(found).To(BeTrue())
-										Expect(actualVolume).To(Equal(fakeVolume))
+										It("returns the error", func() {
+											Expect(<-process.Wait()).To(Equal(disaster))
+										})
 
-										Expect(fakeWorker.LookupVolumeCallCount()).To(Equal(1))
-										_, handle := fakeWorker.LookupVolumeArgsForCall(0)
-										Expect(handle).To(Equal("some-handle"))
+										It("releases the original volume", func() {
+											Expect(imageVolume.ReleaseCallCount()).To(Equal(1))
+										})
+									})
+
+									Context("when streaming the artifact source to the volume succeeds", func() {
+										BeforeEach(func() {
+											imageArtifactSource.StreamToReturns(nil)
+										})
+
+										Context("when streaming the metadata from the worker fails", func() {
+											var disaster error
+											BeforeEach(func() {
+												disaster = errors.New("got em")
+												imageArtifactSource.StreamFileReturns(nil, disaster)
+											})
+
+											It("returns the error", func() {
+												Expect(<-process.Wait()).To(Equal(disaster))
+											})
+
+											It("releases the original volume after creating the cow volume", func() {
+												// See fakeWorker.CreateVolumeStub for the rest of this assertion
+												Expect(imageVolume.ReleaseCallCount()).To(Equal(1))
+											})
+										})
+
+										Context("when streaming the metadata from the worker succeeds", func() {
+											var metadataReader io.ReadCloser
+											BeforeEach(func() {
+												metadataReader = ioutil.NopCloser(strings.NewReader("some-tar-contents"))
+												imageArtifactSource.StreamFileReturns(metadataReader, nil)
+											})
+
+											JustBeforeEach(func() {
+												Eventually(process.Wait()).Should(Receive(BeNil()))
+											})
+
+											It("Creates a volume to stream the image into", func() {
+												Expect(fakeWorker.CreateVolumeCallCount()).To(Equal(2))
+												_, actualVolumeSpec := fakeWorker.CreateVolumeArgsForCall(0)
+												Expect(actualVolumeSpec).To(Equal(worker.VolumeSpec{
+													Strategy: worker.ImageArtifactReplicationStrategy{
+														Name: imageArtifactName,
+													},
+													Privileged: true,
+													TTL:        worker.VolumeTTL,
+												}))
+											})
+
+											It("Streams the artifact source to the target volume", func() {
+												Expect(imageArtifactSource.StreamToCallCount()).To(Equal(1))
+												actualDest := imageArtifactSource.StreamToArgsForCall(0)
+												actualDest.StreamIn(imageVolume.Handle(), dummyReader)
+												Expect(imageVolume.StreamInCallCount()).To(Equal(1))
+												actualHandle, actualReader := imageVolume.StreamInArgsForCall(0)
+												Expect(actualHandle).To(Equal(imageVolume.Handle()))
+												Expect(actualReader).To(Equal(dummyReader))
+											})
+
+											It("Creates a cow volume to set the correct privilege", func() {
+												Expect(fakeWorker.CreateVolumeCallCount()).To(Equal(2))
+												_, actualVolumeSpec := fakeWorker.CreateVolumeArgsForCall(1)
+												Expect(actualVolumeSpec).To(Equal(worker.VolumeSpec{
+													Strategy: worker.ContainerRootFSStrategy{
+														Parent: imageVolume,
+													},
+													Privileged: false,
+													TTL:        worker.VolumeTTL,
+												}))
+											})
+
+											It("releases the original volume after creating the cow volume", func() {
+												// See fakeWorker.CreateVolumeStub for the rest of this assertion
+												Expect(imageVolume.ReleaseCallCount()).To(Equal(1))
+											})
+
+											It("streams the metadata from the worker", func() {
+												Expect(imageArtifactSource.StreamFileCallCount()).To(Equal(1))
+												Expect(imageArtifactSource.StreamFileArgsForCall(0)).To(Equal("metadata.json"))
+											})
+
+											It("creates the container with the volume and a metadata stream", func() {
+												_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
+												Expect(spec.ImageSpec).To(Equal(worker.ImageSpec{
+													ImageVolumeAndMetadata: worker.ImageVolumeAndMetadata{
+														Volume:         imageCowVolume,
+														MetadataReader: metadataReader,
+													},
+												}))
+											})
+
+											Context("when the task specifies privileged", func() {
+												BeforeEach(func() {
+													privileged = true
+												})
+
+												It("Creates a privileged volume to stream the image into", func() {
+													Expect(fakeWorker.CreateVolumeCallCount()).To(Equal(2))
+													_, actualVolumeSpec := fakeWorker.CreateVolumeArgsForCall(0)
+													Expect(actualVolumeSpec).To(Equal(worker.VolumeSpec{
+														Strategy: worker.ImageArtifactReplicationStrategy{
+															Name: imageArtifactName,
+														},
+														Privileged: true,
+														TTL:        worker.VolumeTTL,
+													}))
+												})
+
+												It("Creates a cow volume with the correct privilege", func() {
+													Expect(fakeWorker.CreateVolumeCallCount()).To(Equal(2))
+													_, actualVolumeSpec := fakeWorker.CreateVolumeArgsForCall(1)
+													Expect(actualVolumeSpec).To(Equal(worker.VolumeSpec{
+														Strategy: worker.ContainerRootFSStrategy{
+															Parent: imageVolume,
+														},
+														Privileged: true,
+														TTL:        worker.VolumeTTL,
+													}))
+												})
+											})
+										})
+									})
+								})
+
+								Context("when the image artifact is in a volume on the worker", func() {
+									var imageVolume *wfakes.FakeVolume
+									var cowVolume *wfakes.FakeVolume
+
+									BeforeEach(func() {
+										imageVolume = new(wfakes.FakeVolume)
+										imageVolume.PathReturns("/var/vcap/some-path")
+										cowVolume = new(wfakes.FakeVolume)
+										cowVolume.PathReturns("/var/vcap/some-cow-path")
+										cowVolume.HandleReturns("cow-handle")
+
+										fakeWorker.CreateVolumeStub = func(logger lager.Logger, spec worker.VolumeSpec) (worker.Volume, error) {
+											defer GinkgoRecover()
+											Expect(imageVolume.ReleaseCallCount()).To(BeZero())
+											return cowVolume, nil
+										}
+										imageArtifactSource.VolumeOnReturns(imageVolume, true, nil)
+									})
+
+									Context("when streaming the metadata from the worker succeeds", func() {
+										var metadataReader io.ReadCloser
+										BeforeEach(func() {
+											metadataReader = ioutil.NopCloser(strings.NewReader("some-tar-contents"))
+											imageArtifactSource.StreamFileReturns(metadataReader, nil)
+										})
+
+										JustBeforeEach(func() {
+											Eventually(process.Wait()).Should(Receive(BeNil()))
+										})
+
+										It("checks whether the artifact is in a volume on the worker", func() {
+											Expect(imageArtifactSource.VolumeOnCallCount()).To(Equal(1))
+											Expect(imageArtifactSource.VolumeOnArgsForCall(0)).To(Equal(fakeWorker))
+										})
+
+										It("creates a COW volume from the output volume", func() {
+											Expect(fakeWorker.CreateVolumeCallCount()).To(Equal(1))
+											_, actualVolumeSpec := fakeWorker.CreateVolumeArgsForCall(0)
+											Expect(actualVolumeSpec).To(Equal(worker.VolumeSpec{
+												Strategy: worker.ContainerRootFSStrategy{
+													Parent: imageVolume,
+												},
+												Privileged: false,
+												TTL:        worker.VolumeTTL,
+											}))
+										})
+
+										It("releases the original volume after creating the cow volume", func() {
+											// See fakeWorker.CreateVolumeStub for the rest of this assertion
+											Expect(imageVolume.ReleaseCallCount()).To(Equal(1))
+										})
+
+										It("streams the metadata from the worker", func() {
+											Expect(imageArtifactSource.StreamFileCallCount()).To(Equal(1))
+											Expect(imageArtifactSource.StreamFileArgsForCall(0)).To(Equal("metadata.json"))
+										})
+
+										It("creates the container with the volume and a metadata stream", func() {
+											_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
+											Expect(spec.ImageSpec).To(Equal(worker.ImageSpec{
+												ImageVolumeAndMetadata: worker.ImageVolumeAndMetadata{
+													Volume:         cowVolume,
+													MetadataReader: metadataReader,
+												},
+											}))
+										})
+
+										Context("when the task specifies privileged", func() {
+											BeforeEach(func() {
+												privileged = true
+											})
+
+											It("creates a privileged COW volume from the output volume", func() {
+												Expect(fakeWorker.CreateVolumeCallCount()).To(Equal(1))
+												_, actualVolumeSpec := fakeWorker.CreateVolumeArgsForCall(0)
+												Expect(actualVolumeSpec).To(Equal(worker.VolumeSpec{
+													Strategy: worker.ContainerRootFSStrategy{
+														Parent: imageVolume,
+													},
+													Privileged: true,
+													TTL:        worker.VolumeTTL,
+												}))
+											})
+										})
+									})
+								})
+
+								Describe("when task config specifies image and/or image resource as well as image artifact", func() {
+									var imageVolume *wfakes.FakeVolume
+									var cowVolume *wfakes.FakeVolume
+
+									BeforeEach(func() {
+										imageVolume = new(wfakes.FakeVolume)
+										imageVolume.PathReturns("/var/vcap/some-path")
+										imageArtifactSource.VolumeOnReturns(imageVolume, true, nil)
+
+										cowVolume = new(wfakes.FakeVolume)
+										cowVolume.PathReturns("/var/vcap/some-cow-path")
+										cowVolume.HandleReturns("cow-handle")
+
+										fakeWorker.CreateVolumeReturns(cowVolume, nil)
+									})
+
+									Context("when streaming the metadata from the worker succeeds", func() {
+										var metadataReader io.ReadCloser
+										BeforeEach(func() {
+											metadataReader = ioutil.NopCloser(strings.NewReader("some-tar-contents"))
+											imageArtifactSource.StreamFileReturns(metadataReader, nil)
+										})
+
+										JustBeforeEach(func() {
+											Eventually(process.Wait()).Should(Receive(BeNil()))
+										})
+
+										Context("when the task config also specifies image", func() {
+											BeforeEach(func() {
+												configWithImage := atc.TaskConfig{
+													Platform: "some-platform",
+													Image:    "some-image",
+													Params:   map[string]string{"SOME": "params"},
+													Run: atc.TaskRunConfig{
+														Path: "ls",
+														Args: []string{"some", "args"},
+													},
+												}
+
+												configSource.FetchConfigReturns(configWithImage, nil)
+											})
+
+											It("still creates the container with the volume's path as ImageURL", func() {
+												_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
+												Expect(spec.ImageSpec).To(Equal(worker.ImageSpec{
+													ImageVolumeAndMetadata: worker.ImageVolumeAndMetadata{
+														Volume:         cowVolume,
+														MetadataReader: metadataReader,
+													},
+												}))
+											})
+										})
+
+										Context("when the task config also specifies image_resource", func() {
+											BeforeEach(func() {
+												configWithImageResource := atc.TaskConfig{
+													Platform: "some-platform",
+													ImageResource: &atc.ImageResource{
+														Type:   "docker",
+														Source: atc.Source{"some": "source"},
+													},
+													Params: map[string]string{"SOME": "params"},
+													Run: atc.TaskRunConfig{
+														Path: "ls",
+														Args: []string{"some", "args"},
+													},
+												}
+
+												configSource.FetchConfigReturns(configWithImageResource, nil)
+											})
+
+											It("still creates the container with the volume's path as ImageURL", func() {
+												_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
+												Expect(spec.ImageSpec).To(Equal(worker.ImageSpec{
+													ImageVolumeAndMetadata: worker.ImageVolumeAndMetadata{
+														Volume:         cowVolume,
+														MetadataReader: metadataReader,
+													},
+												}))
+											})
+										})
+
+										Context("when the task config also specifies image and image_resource", func() {
+											BeforeEach(func() {
+												configWithImageAndImageResource := atc.TaskConfig{
+													Platform: "some-platform",
+													Image:    "some-image",
+													ImageResource: &atc.ImageResource{
+														Type:   "docker",
+														Source: atc.Source{"some": "source"},
+													},
+													Params: map[string]string{"SOME": "params"},
+													Run: atc.TaskRunConfig{
+														Path: "ls",
+														Args: []string{"some", "args"},
+													},
+												}
+
+												configSource.FetchConfigReturns(configWithImageAndImageResource, nil)
+											})
+
+											It("still creates the container with the volume's path as ImageURL", func() {
+												_, _, _, _, _, spec, _ := fakeWorker.CreateContainerArgsForCall(0)
+												Expect(spec.ImageSpec).To(Equal(worker.ImageSpec{
+													ImageVolumeAndMetadata: worker.ImageVolumeAndMetadata{
+														Volume:         cowVolume,
+														MetadataReader: metadataReader,
+													},
+												}))
+											})
+										})
 									})
 								})
 							})

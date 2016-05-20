@@ -29,6 +29,7 @@ type Client interface {
 	FindContainerForIdentifier(lager.Logger, Identifier) (Container, bool, error)
 	LookupContainer(lager.Logger, string) (Container, bool, error)
 
+	FindResourceTypeByPath(path string) (atc.WorkerResourceType, bool)
 	FindVolume(lager.Logger, VolumeSpec) (Volume, bool, error)
 	CreateVolume(lager.Logger, VolumeSpec) (Volume, error)
 	ListVolumes(lager.Logger, VolumeProperties) ([]Volume, error)
@@ -58,7 +59,6 @@ func (spec VolumeSpec) baggageclaimVolumeSpec() baggageclaim.VolumeSpec {
 type Strategy interface {
 	baggageclaimStrategy() baggageclaim.Strategy
 	dbIdentifier() db.VolumeIdentifier
-	fuzzyIdentifier() db.VolumeIdentifier
 }
 
 type ResourceCacheStrategy struct {
@@ -79,10 +79,6 @@ func (strategy ResourceCacheStrategy) dbIdentifier() db.VolumeIdentifier {
 	}
 }
 
-func (strategy ResourceCacheStrategy) fuzzyIdentifier() db.VolumeIdentifier {
-	return strategy.dbIdentifier()
-}
-
 type OutputStrategy struct {
 	Name string
 }
@@ -99,8 +95,20 @@ func (strategy OutputStrategy) dbIdentifier() db.VolumeIdentifier {
 	}
 }
 
-func (strategy OutputStrategy) fuzzyIdentifier() db.VolumeIdentifier {
-	return strategy.dbIdentifier()
+type ImageArtifactReplicationStrategy struct {
+	Name string
+}
+
+func (ImageArtifactReplicationStrategy) baggageclaimStrategy() baggageclaim.Strategy {
+	return baggageclaim.EmptyStrategy{}
+}
+
+func (strategy ImageArtifactReplicationStrategy) dbIdentifier() db.VolumeIdentifier {
+	return db.VolumeIdentifier{
+		Replication: &db.ReplicationIdentifier{
+			ReplicatedVolumeHandle: strategy.Name,
+		},
+	}
 }
 
 type ContainerRootFSStrategy struct {
@@ -121,10 +129,6 @@ func (strategy ContainerRootFSStrategy) dbIdentifier() db.VolumeIdentifier {
 	}
 }
 
-func (strategy ContainerRootFSStrategy) fuzzyIdentifier() db.VolumeIdentifier {
-	return strategy.dbIdentifier()
-}
-
 type HostRootFSStrategy struct {
 	Path       string
 	WorkerName string
@@ -143,15 +147,6 @@ func (strategy HostRootFSStrategy) dbIdentifier() db.VolumeIdentifier {
 			Path:       strategy.Path,
 			WorkerName: strategy.WorkerName,
 			Version:    strategy.Version,
-		},
-	}
-}
-
-func (strategy HostRootFSStrategy) fuzzyIdentifier() db.VolumeIdentifier {
-	return db.VolumeIdentifier{
-		Import: &db.ImportIdentifier{
-			Path:       strategy.Path,
-			WorkerName: strategy.WorkerName,
 		},
 	}
 }

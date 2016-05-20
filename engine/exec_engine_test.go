@@ -12,12 +12,15 @@ import (
 	"github.com/concourse/atc/engine/fakes"
 	"github.com/concourse/atc/event"
 	"github.com/concourse/atc/exec"
-	execfakes "github.com/concourse/atc/exec/fakes"
 	"github.com/concourse/atc/worker"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
+
+	dbfakes "github.com/concourse/atc/db/fakes"
+	execfakes "github.com/concourse/atc/exec/fakes"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("ExecEngine", func() {
@@ -25,6 +28,7 @@ var _ = Describe("ExecEngine", func() {
 		fakeFactory         *execfakes.FakeFactory
 		fakeDelegateFactory *fakes.FakeBuildDelegateFactory
 		fakeDB              *fakes.FakeEngineDB
+		fakeTeamDB          *dbfakes.FakeTeamDB
 		logger              *lagertest.TestLogger
 
 		execEngine engine.Engine
@@ -36,7 +40,16 @@ var _ = Describe("ExecEngine", func() {
 		fakeDB = new(fakes.FakeEngineDB)
 		logger = lagertest.NewTestLogger("test")
 
-		execEngine = engine.NewExecEngine(fakeFactory, fakeDelegateFactory, fakeDB, "http://example.com")
+		fakeTeamDBFactory := new(dbfakes.FakeTeamDBFactory)
+		fakeTeamDB = new(dbfakes.FakeTeamDB)
+		fakeTeamDBFactory.GetTeamDBReturns(fakeTeamDB)
+		execEngine = engine.NewExecEngine(
+			fakeFactory,
+			fakeDelegateFactory,
+			fakeTeamDBFactory,
+			fakeDB,
+			"http://example.com",
+		)
 	})
 
 	Describe("Resume", func() {
@@ -416,7 +429,7 @@ var _ = Describe("ExecEngine", func() {
 			})
 
 			It("constructs nested steps correctly", func() {
-				logger, sourceName, workerID, workerMetadata, delegate, privileged, tags, configSource, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
+				logger, sourceName, workerID, workerMetadata, delegate, privileged, tags, configSource, _, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
 				Expect(logger).NotTo(BeNil())
 				Expect(sourceName).To(Equal(exec.SourceName("some-task")))
 				Expect(workerMetadata).To(Equal(worker.Metadata{
@@ -436,7 +449,7 @@ var _ = Describe("ExecEngine", func() {
 				Expect(tags).To(Equal(atc.Tags{"some", "task", "tags"}))
 				Expect(configSource).To(Equal(exec.ValidatingConfigSource{exec.FileConfigSource{"some-config-path"}}))
 
-				logger, sourceName, workerID, workerMetadata, delegate, privileged, tags, configSource, _, _, _, _ = fakeFactory.TaskArgsForCall(1)
+				logger, sourceName, workerID, workerMetadata, delegate, privileged, tags, configSource, _, _, _, _, _ = fakeFactory.TaskArgsForCall(1)
 				Expect(logger).NotTo(BeNil())
 				Expect(sourceName).To(Equal(exec.SourceName("some-task")))
 				Expect(workerMetadata).To(Equal(worker.Metadata{
@@ -502,13 +515,13 @@ var _ = Describe("ExecEngine", func() {
 			})
 
 			It("constructs nested steps correctly", func() {
-				_, _, _, workerMetadata, _, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
+				_, _, _, workerMetadata, _, _, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
 				Expect(workerMetadata.Attempts).To(Equal([]int{1}))
-				_, _, _, workerMetadata, _, _, _, _, _, _, _, _ = fakeFactory.TaskArgsForCall(1)
+				_, _, _, workerMetadata, _, _, _, _, _, _, _, _, _ = fakeFactory.TaskArgsForCall(1)
 				Expect(workerMetadata.Attempts).To(Equal([]int{1}))
-				_, _, _, workerMetadata, _, _, _, _, _, _, _, _ = fakeFactory.TaskArgsForCall(2)
+				_, _, _, workerMetadata, _, _, _, _, _, _, _, _, _ = fakeFactory.TaskArgsForCall(2)
 				Expect(workerMetadata.Attempts).To(Equal([]int{1}))
-				_, _, _, workerMetadata, _, _, _, _, _, _, _, _ = fakeFactory.TaskArgsForCall(3)
+				_, _, _, workerMetadata, _, _, _, _, _, _, _, _, _ = fakeFactory.TaskArgsForCall(3)
 				Expect(workerMetadata.Attempts).To(Equal([]int{1}))
 			})
 		})
@@ -614,7 +627,7 @@ var _ = Describe("ExecEngine", func() {
 					build.Resume(logger)
 					Expect(fakeFactory.TaskCallCount()).To(Equal(1))
 
-					logger, sourceName, workerID, workerMetadata, delegate, privileged, tags, configSource, _, actualInputMapping, actualOutputMapping, _ := fakeFactory.TaskArgsForCall(0)
+					logger, sourceName, workerID, workerMetadata, delegate, privileged, tags, configSource, _, actualInputMapping, actualOutputMapping, _, _ := fakeFactory.TaskArgsForCall(0)
 					Expect(logger).NotTo(BeNil())
 					Expect(sourceName).To(Equal(exec.SourceName("some-task")))
 					Expect(workerMetadata).To(Equal(worker.Metadata{
@@ -641,6 +654,24 @@ var _ = Describe("ExecEngine", func() {
 					Expect(actualOutputMapping).To(Equal(outputMapping))
 				})
 
+				Context("when the plan's image references the output of a previous step", func() {
+					BeforeEach(func() {
+						taskPlan.ImageArtifactName = "some-image-artifact-name"
+					})
+
+					It("constructs the task with the referenced image", func() {
+						var err error
+						build, err = execEngine.CreateBuild(logger, buildModel, plan)
+						Expect(err).NotTo(HaveOccurred())
+
+						build.Resume(logger)
+						Expect(fakeFactory.TaskCallCount()).To(Equal(1))
+
+						_, _, _, _, _, _, _, _, _, _, _, actualImageArtifactName, _ := fakeFactory.TaskArgsForCall(0)
+						Expect(actualImageArtifactName).To(Equal("some-image-artifact-name"))
+					})
+				})
+
 				Context("when the plan contains params and config path", func() {
 					BeforeEach(func() {
 						taskPlan.Params = map[string]interface{}{
@@ -656,7 +687,7 @@ var _ = Describe("ExecEngine", func() {
 						build.Resume(logger)
 						Expect(fakeFactory.TaskCallCount()).To(Equal(1))
 
-						_, _, _, _, _, _, _, configSource, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
+						_, _, _, _, _, _, _, configSource, _, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
 						vcs, ok := configSource.(exec.ValidatingConfigSource)
 						Expect(ok).To(BeTrue())
 						_, ok = vcs.ConfigSource.(exec.MergedConfigSource)
@@ -681,7 +712,7 @@ var _ = Describe("ExecEngine", func() {
 						build.Resume(logger)
 						Expect(fakeFactory.TaskCallCount()).To(Equal(1))
 
-						_, _, _, _, _, _, _, configSource, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
+						_, _, _, _, _, _, _, configSource, _, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
 						vcs, ok := configSource.(exec.ValidatingConfigSource)
 						Expect(ok).To(BeTrue())
 						_, ok = vcs.ConfigSource.(exec.MergedConfigSource)
@@ -904,8 +935,7 @@ var _ = Describe("ExecEngine", func() {
 						}
 					}`,
 				}
-				fakeDB.GetPipelineByTeamNameAndNameStub = func(teamName string, pipelineName string) (db.SavedPipeline, error) {
-					Expect(teamName).To(Equal("main"))
+				fakeTeamDB.GetPipelineByNameStub = func(pipelineName string) (db.SavedPipeline, error) {
 					switch pipelineName {
 					case "some-pipeline-1":
 						return db.SavedPipeline{ID: 1}, nil
@@ -972,7 +1002,7 @@ var _ = Describe("ExecEngine", func() {
 					}`,
 					}
 					disaster = errors.New("oh dear")
-					fakeDB.GetPipelineByTeamNameAndNameReturns(db.SavedPipeline{}, disaster)
+					fakeTeamDB.GetPipelineByNameReturns(db.SavedPipeline{}, disaster)
 				})
 
 				It("returns an error", func() {

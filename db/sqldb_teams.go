@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/concourse/atc"
 )
 
@@ -32,12 +30,17 @@ func (db *SQLDB) CreateDefaultTeamIfNotExists() error {
 	return err
 }
 
-func (db *SQLDB) SaveTeam(data Team) (SavedTeam, error) {
-	jsonEncodedBasicAuth, err := db.jsonEncodeTeamBasicAuth(data)
+func (db *SQLDB) CreateTeam(team Team) (SavedTeam, error) {
+	jsonEncodedBasicAuth, err := team.BasicAuth.EncryptedJSON()
 	if err != nil {
 		return SavedTeam{}, err
 	}
-	jsonEncodedGitHubAuth, err := db.jsonEncodeTeamGitHubAuth(data)
+
+	gitHubAuth := GitHubAuth{}
+	if team.ClientID != "" && team.ClientSecret != "" {
+		gitHubAuth = team.GitHubAuth
+	}
+	jsonEncodedGitHubAuth, err := json.Marshal(gitHubAuth)
 	if err != nil {
 		return SavedTeam{}, err
 	}
@@ -49,7 +52,7 @@ func (db *SQLDB) SaveTeam(data Team) (SavedTeam, error) {
 		'%s', '%s', '%s'
 	)
 	RETURNING id, name, admin, basic_auth, github_auth
-	`, data.Name, jsonEncodedBasicAuth, jsonEncodedGitHubAuth,
+	`, team.Name, jsonEncodedBasicAuth, string(jsonEncodedGitHubAuth),
 	))
 }
 
@@ -95,84 +98,10 @@ func (db *SQLDB) queryTeam(query string) (SavedTeam, error) {
 	return savedTeam, nil
 }
 
-func (db *SQLDB) GetTeamByName(teamName string) (SavedTeam, bool, error) {
-	query := fmt.Sprintf(`
-		SELECT id, name, admin, basic_auth, github_auth
-		FROM teams
-		WHERE name = '%s'
-	`, teamName,
-	)
-	savedTeam, err := db.queryTeam(query)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return savedTeam, false, nil
-		}
-
-		return savedTeam, false, err
-	}
-
-	return savedTeam, true, err
-}
-
-func (db *SQLDB) jsonEncodeTeamGitHubAuth(team Team) (string, error) {
-	if team.ClientID == "" || team.ClientSecret == "" {
-		team.GitHubAuth = GitHubAuth{}
-	}
-
-	json, err := json.Marshal(team.GitHubAuth)
-	return string(json), err
-}
-
-func (db *SQLDB) UpdateTeamGitHubAuth(team Team) (SavedTeam, error) {
-	gitHubAuth, err := db.jsonEncodeTeamGitHubAuth(team)
-	if err != nil {
-		return SavedTeam{}, err
-	}
-
-	query := fmt.Sprintf(`
-		UPDATE teams
-		SET github_auth = '%s'
-		WHERE name = '%s'
-		RETURNING id, name, admin, basic_auth, github_auth
-	`, gitHubAuth, team.Name,
-	)
-	return db.queryTeam(query)
-}
-
-func (db *SQLDB) jsonEncodeTeamBasicAuth(team Team) (string, error) {
-	if team.BasicAuthUsername == "" || team.BasicAuthPassword == "" {
-		team.BasicAuth = BasicAuth{}
-	} else {
-		encryptedPw, err := bcrypt.GenerateFromPassword([]byte(team.BasicAuthPassword), 4)
-		if err != nil {
-			return "", err
-		}
-		team.BasicAuthPassword = string(encryptedPw)
-	}
-
-	json, err := json.Marshal(team.BasicAuth)
-	return string(json), err
-}
-
-func (db *SQLDB) UpdateTeamBasicAuth(team Team) (SavedTeam, error) {
-	basicAuth, err := db.jsonEncodeTeamBasicAuth(team)
-	if err != nil {
-		return SavedTeam{}, err
-	}
-
-	query := fmt.Sprintf(`
-		UPDATE teams
-		SET basic_auth = '%s'
-		WHERE name = '%s'
-		RETURNING id, name, admin, basic_auth, github_auth
-	`, basicAuth, team.Name)
-	return db.queryTeam(query)
-}
-
 func (db *SQLDB) DeleteTeamByName(teamName string) error {
 	_, err := db.conn.Exec(`
     DELETE FROM teams
-		WHERE name = $1
+		WHERE name ILIKE $1
 	`, teamName)
 	return err
 }

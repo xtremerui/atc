@@ -4,12 +4,13 @@ import (
 	"net/http"
 
 	"github.com/concourse/atc"
+	"github.com/concourse/atc/db"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type BasicAuthValidator struct {
-	DB AuthDB
+	TeamDBFactory db.TeamDBFactory
 }
 
 // IsAuthenticated
@@ -22,7 +23,12 @@ func (validator BasicAuthValidator) IsAuthenticated(r *http.Request) bool {
 		return false
 	}
 
-	team, found, err := validator.DB.GetTeamByName(atc.DefaultTeamName)
+	teamName := r.FormValue(":team_name")
+	if teamName == "" {
+		teamName = atc.DefaultTeamName
+	}
+	teamDB := validator.TeamDBFactory.GetTeamDB(teamName)
+	team, found, err := teamDB.GetTeam()
 	if err != nil || !found {
 		return false
 	}

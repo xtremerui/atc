@@ -52,6 +52,7 @@ type PipelineDB interface {
 	GetJob(job string) (SavedJob, error)
 	PauseJob(job string) error
 	UnpauseJob(job string) error
+	UpdateFirstLoggedBuildID(job string, newFirstLoggedBuildID int) error
 
 	GetJobFinishedAndNextBuild(job string) (*Build, *Build, error)
 
@@ -65,7 +66,7 @@ type PipelineDB interface {
 	UseInputsForBuild(buildID int, inputs []BuildInput) error
 
 	LoadVersionsDB() (*algorithm.VersionsDB, error)
-	GetNextInputVersions(versions *algorithm.VersionsDB, job string, inputs []config.JobInput) ([]BuildInput, bool, error)
+	GetNextInputVersions(versions *algorithm.VersionsDB, job string, inputs []config.JobInput) ([]BuildInput, bool, MissingInputReasons, error)
 	GetJobBuildForInputs(job string, inputs []BuildInput) (Build, bool, error)
 	GetNextPendingBuild(job string) (Build, bool, error)
 
@@ -102,6 +103,16 @@ type ResourceNotFoundError struct {
 
 func (e ResourceNotFoundError) Error() string {
 	return fmt.Sprintf("resource '%s' not found", e.Name)
+}
+
+type FirstLoggedBuildIDDecreasedError struct {
+	Job   string
+	OldID int
+	NewID int
+}
+
+func (e FirstLoggedBuildIDDecreasedError) Error() string {
+	return fmt.Sprintf("first logged build id for job '%s' decreased from %d to %d", e.Job, e.OldID, e.NewID)
 }
 
 func (pdb *pipelineDB) GetPipelineName() string {
@@ -1838,12 +1849,13 @@ func (pdb *pipelineDB) LoadVersionsDB() (*algorithm.VersionsDB, error) {
 	return db, nil
 }
 
-func (pdb *pipelineDB) GetNextInputVersions(db *algorithm.VersionsDB, jobName string, inputs []config.JobInput) ([]BuildInput, bool, error) {
+func (pdb *pipelineDB) GetNextInputVersions(db *algorithm.VersionsDB, jobName string, inputs []config.JobInput) ([]BuildInput, bool, MissingInputReasons, error) {
 	if len(inputs) == 0 {
-		return []BuildInput{}, true, nil
+		return []BuildInput{}, true, MissingInputReasons{}, nil
 	}
 
 	var inputConfigs algorithm.InputConfigs
+	missingInputReasons := algorithm.MissingInputReasons{}
 
 	for _, input := range inputs {
 		jobs := algorithm.JobSet{}
@@ -1851,18 +1863,48 @@ func (pdb *pipelineDB) GetNextInputVersions(db *algorithm.VersionsDB, jobName st
 			jobs[db.JobIDs[jobName]] = struct{}{}
 		}
 
+		var pinnedVersionID int
+		if input.Version != nil && input.Version.Pinned != nil {
+			versionJSON, err := json.Marshal(input.Version.Pinned)
+			if err != nil {
+				return []BuildInput{}, false, MissingInputReasons{}, err
+			}
+
+			resourceID := db.ResourceIDs[input.Resource]
+			err = pdb.conn.QueryRow(`
+			SELECT id
+			  FROM versioned_resources
+			 WHERE version = $1 AND resource_id = $2
+		`, string(versionJSON), resourceID).Scan(&pinnedVersionID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					missingInputReasons.RegisterPinnedVersionUnavailable(input.Name, string(versionJSON))
+				} else {
+					return []BuildInput{}, false, MissingInputReasons{}, err
+				}
+			}
+		}
+
+		useEveryVersion := input.Version != nil && input.Version.Every
+
 		inputConfigs = append(inputConfigs, algorithm.InputConfig{
-			Name:       input.Name,
-			Version:    input.Version,
-			ResourceID: db.ResourceIDs[input.Resource],
-			Passed:     jobs,
-			JobID:      db.JobIDs[jobName],
+			Name:            input.Name,
+			UseEveryVersion: useEveryVersion,
+			PinnedVersionID: pinnedVersionID,
+			ResourceID:      db.ResourceIDs[input.Resource],
+			Passed:          jobs,
+			JobID:           db.JobIDs[jobName],
 		})
 	}
 
-	resolved, ok := inputConfigs.Resolve(db)
+	if len(missingInputReasons) > 0 {
+		return []BuildInput{}, false, MissingInputReasons(missingInputReasons), nil
+	}
+
+	resolved, ok, resolveMissingInputReasons := inputConfigs.Resolve(db)
 	if !ok {
-		return nil, false, nil
+		missingInputReasons.Append(resolveMissingInputReasons)
+		return nil, false, MissingInputReasons(missingInputReasons), nil
 	}
 
 	var buildInputs []BuildInput
@@ -1882,17 +1924,17 @@ func (pdb *pipelineDB) GetNextInputVersions(db *algorithm.VersionsDB, jobName st
 				AND vr.resource_id = r.id
 		`, id).Scan(&svr.Resource, &svr.Type, &version, &metadata)
 		if err != nil {
-			return nil, false, err
+			return nil, false, MissingInputReasons{}, err
 		}
 
 		err = json.Unmarshal([]byte(version), &svr.Version)
 		if err != nil {
-			return nil, false, err
+			return nil, false, MissingInputReasons{}, err
 		}
 
 		err = json.Unmarshal([]byte(metadata), &svr.Metadata)
 		if err != nil {
-			return nil, false, err
+			return nil, false, MissingInputReasons{}, err
 		}
 
 		buildInputs = append(buildInputs, BuildInput{
@@ -1901,7 +1943,7 @@ func (pdb *pipelineDB) GetNextInputVersions(db *algorithm.VersionsDB, jobName st
 		})
 	}
 
-	return buildInputs, true, nil
+	return buildInputs, true, MissingInputReasons{}, nil
 }
 
 func (pdb *pipelineDB) PauseJob(job string) error {
@@ -1910,6 +1952,48 @@ func (pdb *pipelineDB) PauseJob(job string) error {
 
 func (pdb *pipelineDB) UnpauseJob(job string) error {
 	return pdb.updatePausedJob(job, false)
+}
+
+func (pdb *pipelineDB) UpdateFirstLoggedBuildID(job string, newFirstLoggedBuildID int) error {
+	tx, err := pdb.conn.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	dbJob, err := pdb.getJob(tx, job)
+	if err != nil {
+		return err
+	}
+
+	if dbJob.FirstLoggedBuildID > newFirstLoggedBuildID {
+		return FirstLoggedBuildIDDecreasedError{
+			Job:   job,
+			OldID: dbJob.FirstLoggedBuildID,
+			NewID: newFirstLoggedBuildID,
+		}
+	}
+
+	result, err := tx.Exec(`
+		UPDATE jobs
+		SET first_logged_build_id = $1
+		WHERE id = $2
+	`, newFirstLoggedBuildID, dbJob.ID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected != 1 {
+		return nonOneRowAffectedError{rowsAffected}
+	}
+
+	return tx.Commit()
 }
 
 func (pdb *pipelineDB) updatePausedJob(job string, pause bool) error {
@@ -2182,7 +2266,7 @@ func (pdb *pipelineDB) GetDashboard() (Dashboard, atc.GroupConfigs, error) {
 
 func (pdb *pipelineDB) getJobs() (map[string]SavedJob, error) {
 	rows, err := pdb.conn.Query(`
-  	SELECT id, name, paused
+	SELECT id, name, paused, first_logged_build_id
   	FROM jobs
   	WHERE pipeline_id = $1
   `, pdb.ID)
@@ -2197,7 +2281,7 @@ func (pdb *pipelineDB) getJobs() (map[string]SavedJob, error) {
 	for rows.Next() {
 		var savedJob SavedJob
 
-		err := rows.Scan(&savedJob.ID, &savedJob.Name, &savedJob.Paused)
+		err := rows.Scan(&savedJob.ID, &savedJob.Name, &savedJob.Paused, &savedJob.FirstLoggedBuildID)
 		if err != nil {
 			return nil, err
 		}
@@ -2257,28 +2341,11 @@ func (pdb *pipelineDB) getJob(tx Tx, name string) (SavedJob, error) {
 	var job SavedJob
 
 	err := tx.QueryRow(`
-  	SELECT id, name, paused
+ 	SELECT id, name, paused, first_logged_build_id
   	FROM jobs
   	WHERE name = $1
   		AND pipeline_id = $2
-  `, name, pdb.ID).Scan(&job.ID, &job.Name, &job.Paused)
-	if err != nil {
-		return SavedJob{}, err
-	}
-
-	job.PipelineName = pdb.Name
-
-	return job, nil
-}
-
-func (pdb *pipelineDB) getJobByID(id int) (SavedJob, error) {
-	var job SavedJob
-
-	err := pdb.conn.QueryRow(`
-		SELECT id, name, paused
-		FROM jobs
-		WHERE id = $1
-  `, id).Scan(&job.ID, &job.Name, &job.Paused)
+  `, name, pdb.ID).Scan(&job.ID, &job.Name, &job.Paused, &job.FirstLoggedBuildID)
 	if err != nil {
 		return SavedJob{}, err
 	}

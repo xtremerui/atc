@@ -43,16 +43,14 @@ func NewHandler(
 	oAuthBaseURL string,
 
 	pipelineDBFactory db.PipelineDBFactory,
-	configDB db.ConfigDB,
+	teamDBFactory db.TeamDBFactory,
 
-	authDB authserver.AuthDB,
+	teamsDB teamserver.TeamsDB,
 	buildsDB buildserver.BuildsDB,
 	workerDB workerserver.WorkerDB,
 	containerDB containerserver.ContainerDB,
 	volumesDB volumeserver.VolumesDB,
 	pipeDB pipes.PipeDB,
-	pipelinesDB db.PipelinesDB,
-	teamDB teamserver.TeamDB,
 
 	configValidator configserver.ConfigValidator,
 	peerURL string,
@@ -75,7 +73,7 @@ func NewHandler(
 		return nil, err
 	}
 
-	pipelineHandlerFactory := pipelines.NewHandlerFactory(pipelineDBFactory)
+	pipelineHandlerFactory := pipelines.NewHandlerFactory(pipelineDBFactory, teamDBFactory)
 
 	authServer := authserver.NewServer(
 		logger,
@@ -83,7 +81,7 @@ func NewHandler(
 		oAuthBaseURL,
 		tokenGenerator,
 		providerFactory,
-		authDB,
+		teamDBFactory,
 	)
 
 	buildServer := buildserver.NewServer(
@@ -92,7 +90,7 @@ func NewHandler(
 		engine,
 		workerClient,
 		buildsDB,
-		configDB,
+		teamDBFactory,
 		eventHandlerFactory,
 		drain,
 	)
@@ -102,9 +100,9 @@ func NewHandler(
 	versionServer := versionserver.NewServer(logger, externalURL)
 	pipeServer := pipes.NewServer(logger, peerURL, externalURL, pipeDB)
 
-	pipelineServer := pipelineserver.NewServer(logger, pipelinesDB, configDB)
+	pipelineServer := pipelineserver.NewServer(logger, teamDBFactory)
 
-	configServer := configserver.NewServer(logger, configDB, configValidator)
+	configServer := configserver.NewServer(logger, teamDBFactory, configValidator)
 
 	workerServer := workerserver.NewServer(logger, workerDB)
 
@@ -116,7 +114,7 @@ func NewHandler(
 
 	volumesServer := volumeserver.NewServer(logger, volumesDB)
 
-	teamServer := teamserver.NewServer(logger, teamDB)
+	teamServer := teamserver.NewServer(logger, teamDBFactory, teamsDB)
 
 	infoServer := infoserver.NewServer(logger, version)
 
@@ -144,6 +142,7 @@ func NewHandler(
 		atc.CreateJobBuild: pipelineHandlerFactory.HandlerFor(jobServer.CreateJobBuild),
 		atc.PauseJob:       pipelineHandlerFactory.HandlerFor(jobServer.PauseJob),
 		atc.UnpauseJob:     pipelineHandlerFactory.HandlerFor(jobServer.UnpauseJob),
+		atc.JobBadge:       pipelineHandlerFactory.HandlerFor(jobServer.JobBadge),
 
 		atc.ListPipelines:   http.HandlerFunc(pipelineServer.ListPipelines),
 		atc.GetPipeline:     http.HandlerFunc(pipelineServer.GetPipeline),

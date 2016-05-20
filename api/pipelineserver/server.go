@@ -6,19 +6,16 @@ import (
 )
 
 type Server struct {
-	logger      lager.Logger
-	pipelinesDB db.PipelinesDB
-	configDB    db.ConfigDB
+	logger        lager.Logger
+	teamDBFactory db.TeamDBFactory
 }
 
 func NewServer(
 	logger lager.Logger,
-	pipelinesDB db.PipelinesDB,
-	configDB db.ConfigDB,
+	teamDBFactory db.TeamDBFactory,
 ) *Server {
 	return &Server{
-		logger:      logger,
-		pipelinesDB: pipelinesDB,
-		configDB:    configDB,
+		logger:        logger,
+		teamDBFactory: teamDBFactory,
 	}
 }

@@ -43,16 +43,15 @@ var (
 	providerFactory               *authfakes.FakeProviderFactory
 	fakeEngine                    *enginefakes.FakeEngine
 	fakeWorkerClient              *workerfakes.FakeClient
-	authDB                        *authfakes.FakeAuthDB
+	teamsDB                       *teamserverfakes.FakeTeamsDB
 	buildsDB                      *buildfakes.FakeBuildsDB
 	volumesDB                     *volumeserverfakes.FakeVolumesDB
-	configDB                      *dbfakes.FakeConfigDB
 	workerDB                      *workerserverfakes.FakeWorkerDB
 	containerDB                   *containerserverfakes.FakeContainerDB
 	pipeDB                        *pipeserverfakes.FakePipeDB
 	pipelineDBFactory             *dbfakes.FakePipelineDBFactory
-	pipelinesDB                   *dbfakes.FakePipelinesDB
-	teamDB                        *teamserverfakes.FakeTeamDB
+	teamDBFactory                 *dbfakes.FakeTeamDBFactory
+	teamDB                        *dbfakes.FakeTeamDB
 	fakeSchedulerFactory          *jobserverfakes.FakeSchedulerFactory
 	fakeScannerFactory            *resourceserverfakes.FakeScannerFactory
 	configValidationErrorMessages []string
@@ -91,16 +90,16 @@ func (f *fakeEventHandlerFactory) Construct(
 }
 
 var _ = BeforeEach(func() {
-	authDB = new(authfakes.FakeAuthDB)
 	buildsDB = new(buildfakes.FakeBuildsDB)
-	configDB = new(dbfakes.FakeConfigDB)
 	pipelineDBFactory = new(dbfakes.FakePipelineDBFactory)
+	teamDBFactory = new(dbfakes.FakeTeamDBFactory)
+	teamDB = new(dbfakes.FakeTeamDB)
+	teamsDB = new(teamserverfakes.FakeTeamsDB)
+	teamDBFactory.GetTeamDBReturns(teamDB)
 	workerDB = new(workerserverfakes.FakeWorkerDB)
 	containerDB = new(containerserverfakes.FakeContainerDB)
 	volumesDB = new(volumeserverfakes.FakeVolumesDB)
 	pipeDB = new(pipeserverfakes.FakePipeDB)
-	pipelinesDB = new(dbfakes.FakePipelinesDB)
-	teamDB = new(teamserverfakes.FakeTeamDB)
 
 	authValidator = new(authfakes.FakeValidator)
 	userContextReader = new(authfakes.FakeUserContextReader)
@@ -142,16 +141,14 @@ var _ = BeforeEach(func() {
 		oAuthBaseURL,
 
 		pipelineDBFactory,
-		configDB,
+		teamDBFactory,
 
-		authDB,
+		teamsDB,
 		buildsDB,
 		workerDB,
 		containerDB,
 		volumesDB,
 		pipeDB,
-		pipelinesDB,
-		teamDB,
 
 		func(atc.Config) ([]config.Warning, []string) {
 			return configValidationWarnings, configValidationErrorMessages

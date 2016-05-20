@@ -3,6 +3,7 @@ package engine_test
 import (
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/db"
+	dbfakes "github.com/concourse/atc/db/fakes"
 	"github.com/concourse/atc/engine"
 	"github.com/concourse/atc/engine/fakes"
 	"github.com/concourse/atc/exec"
@@ -36,7 +37,14 @@ var _ = Describe("Exec Engine With Hooks", func() {
 		fakeDelegateFactory = new(fakes.FakeBuildDelegateFactory)
 		fakeDB = new(fakes.FakeEngineDB)
 
-		execEngine = engine.NewExecEngine(fakeFactory, fakeDelegateFactory, fakeDB, "http://example.com")
+		fakeTeamDBFactory := new(dbfakes.FakeTeamDBFactory)
+		execEngine = engine.NewExecEngine(
+			fakeFactory,
+			fakeDelegateFactory,
+			fakeTeamDBFactory,
+			fakeDB,
+			"http://example.com",
+		)
 
 		fakeDelegate = new(fakes.FakeBuildDelegate)
 		fakeDelegateFactory.DelegateReturns(fakeDelegate)
@@ -201,7 +209,7 @@ var _ = Describe("Exec Engine With Hooks", func() {
 
 				It("constructs the completion hook correctly", func() {
 					Expect(fakeFactory.TaskCallCount()).To(Equal(4))
-					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(2)
+					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(2)
 					Expect(logger).NotTo(BeNil())
 					Expect(sourceName).To(Equal(exec.SourceName("some-completion-task")))
 					Expect(workerMetadata).To(Equal(worker.Metadata{
@@ -222,7 +230,7 @@ var _ = Describe("Exec Engine With Hooks", func() {
 
 				It("constructs the failure hook correctly", func() {
 					Expect(fakeFactory.TaskCallCount()).To(Equal(4))
-					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
+					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(0)
 					Expect(logger).NotTo(BeNil())
 					Expect(sourceName).To(Equal(exec.SourceName("some-failure-task")))
 					Expect(workerMetadata).To(Equal(worker.Metadata{
@@ -243,7 +251,7 @@ var _ = Describe("Exec Engine With Hooks", func() {
 
 				It("constructs the success hook correctly", func() {
 					Expect(fakeFactory.TaskCallCount()).To(Equal(4))
-					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(1)
+					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(1)
 					Expect(logger).NotTo(BeNil())
 					Expect(sourceName).To(Equal(exec.SourceName("some-success-task")))
 					Expect(workerMetadata).To(Equal(worker.Metadata{
@@ -264,7 +272,7 @@ var _ = Describe("Exec Engine With Hooks", func() {
 
 				It("constructs the next step correctly", func() {
 					Expect(fakeFactory.TaskCallCount()).To(Equal(4))
-					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(3)
+					logger, sourceName, workerID, workerMetadata, delegate, _, _, _, _, _, _, _, _ := fakeFactory.TaskArgsForCall(3)
 					Expect(logger).NotTo(BeNil())
 					Expect(sourceName).To(Equal(exec.SourceName("some-next-task")))
 					Expect(workerMetadata).To(Equal(worker.Metadata{

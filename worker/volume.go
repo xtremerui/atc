@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/concourse/atc/metric"
 	"github.com/concourse/baggageclaim"
 	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
@@ -17,6 +18,7 @@ type VolumeFactoryDB interface {
 	GetVolumeTTL(volumeHandle string) (time.Duration, bool, error)
 	ReapVolume(handle string) error
 	SetVolumeTTL(string, time.Duration) error
+	SetVolumeSize(string, uint) error
 }
 
 //go:generate counterfeiter . VolumeFactory
@@ -39,7 +41,39 @@ func NewVolumeFactory(db VolumeFactoryDB, clock clock.Clock) VolumeFactory {
 
 func (vf *volumeFactory) Build(logger lager.Logger, bcVol baggageclaim.Volume) (Volume, bool, error) {
 	bcVol.Release(nil)
-	return newVolume(logger, bcVol, vf.clock, vf.db)
+
+	logger = logger.WithData(lager.Data{"volume": bcVol.Handle()})
+
+	vol := &volume{
+		Volume: bcVol,
+		db:     vf.db,
+
+		heartbeating: new(sync.WaitGroup),
+		release:      make(chan *time.Duration, 1),
+	}
+
+	ttl, found, err := vf.db.GetVolumeTTL(vol.Handle())
+	if err != nil {
+		logger.Error("failed-to-lookup-expiration-of-volume", err)
+		return nil, false, err
+	}
+
+	if !found {
+		return nil, false, nil
+	}
+
+	vol.heartbeat(logger.Session("initial-heartbeat"), ttl)
+
+	vol.heartbeating.Add(1)
+	go vol.heartbeatContinuously(
+		logger.Session("continuous-heartbeat"),
+		vf.clock.NewTicker(volumeKeepalive),
+		ttl,
+	)
+
+	metric.TrackedVolumes.Inc()
+
+	return vol, true, nil
 }
 
 //go:generate counterfeiter . Volume
@@ -66,48 +100,14 @@ type VolumeMount struct {
 	MountPath string
 }
 
-func newVolume(logger lager.Logger, bcVol baggageclaim.Volume, clock clock.Clock, db VolumeFactoryDB) (Volume, bool, error) {
-	logger = logger.WithData(lager.Data{"volume": bcVol.Handle()})
-
-	vol := &volume{
-		Volume: bcVol,
-		db:     db,
-
-		heartbeating: new(sync.WaitGroup),
-		release:      make(chan *time.Duration, 1),
-	}
-
-	ttl, found, err := vol.db.GetVolumeTTL(vol.Handle())
-	if err != nil {
-		logger.Error("failed-to-lookup-expiration-of-volume", err)
-		return nil, false, err
-	}
-
-	if !found {
-		return nil, false, nil
-	}
-
-	vol.heartbeat(logger.Session("initial-heartbeat"), ttl)
-
-	vol.heartbeating.Add(1)
-	go vol.heartbeatContinuously(
-		logger.Session("continuous-heartbeat"),
-		clock.NewTicker(volumeKeepalive),
-		ttl,
-	)
-
-	return vol, true, nil
-}
-
 func (*volume) HeartbeatingToDB() {}
 
 func (v *volume) Release(finalTTL *time.Duration) {
 	v.releaseOnce.Do(func() {
 		v.release <- finalTTL
 		v.heartbeating.Wait()
+		metric.TrackedVolumes.Dec()
 	})
-
-	return
 }
 
 func (v *volume) heartbeatContinuously(logger lager.Logger, pacemaker clock.Ticker, initialTTL time.Duration) {
@@ -161,5 +161,15 @@ func (v *volume) heartbeat(logger lager.Logger, ttl time.Duration) {
 	err = v.db.SetVolumeTTL(v.Handle(), ttl)
 	if err != nil {
 		logger.Error("failed-to-heartbeat-to-database", err)
+	}
+
+	size, err := v.Size()
+	if err != nil {
+		logger.Error("failed-to-get-volume-size", err)
+	} else {
+		err := v.db.SetVolumeSize(v.Handle(), size)
+		if err != nil {
+			logger.Error("failed-to-store-volume-size", err)
+		}
 	}
 }
