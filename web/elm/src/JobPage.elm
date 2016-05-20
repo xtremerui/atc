@@ -5,6 +5,7 @@ import Time
 
 import Job
 
+main : Program Job.Flags
 main =
   Html.App.programWithFlags
     { init = Job.init

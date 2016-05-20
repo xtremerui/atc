@@ -14,6 +14,7 @@ type alias Flags =
   , buildFlags : Build.Flags
   }
 
+main : Program Flags
 main =
   Html.App.programWithFlags
     { init = init
