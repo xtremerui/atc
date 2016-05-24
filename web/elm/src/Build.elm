@@ -67,13 +67,14 @@ type Action
 
 type alias Flags =
   { buildId : Int
+  , now : Time
   }
 
 init : Flags -> (Model, Cmd Action)
 init flags =
   let
     model =
-      { now = 0
+      { now = flags.now
       , job = Nothing
       , history = []
       , currentBuild = Nothing

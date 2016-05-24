@@ -54,6 +54,23 @@ view : (subModel -> Html subAction) -> Model subModel -> Html (Action subAction)
 view subView model =
   Html.div [class "nav-page"] [
     Html.div [class "nav-content"] [
+      Html.div [class "breadcrumb"] [
+        Html.span [class "crumb tier1"] [
+          Html.a [href "google.com"] [
+            Html.text "main"
+          ]
+        ],
+        Html.span [class "crumb tier2"] [
+          Html.a [href "google.com"] [
+            Html.text "main"
+          ]
+        ],
+        Html.span [class "crumb tier3"] [
+          Html.a [href "google.com"] [
+            Html.text "main"
+          ]
+        ]
+      ],
       Html.App.map SubAction (subView model.subModel)
     ],
 
@@ -95,11 +112,11 @@ buildEvent status pct =
     ],
 
     Html.div [class "progress"] [
-      Html.span [class "fixed-duration"] [Html.text (toString (round <| 15 * (toFloat pct / 100.0)) ++ "m")],
+      -- Html.span [class "fixed-duration"] [Html.text (toString (round <| 15 * (toFloat pct / 100.0)) ++ "m")],
 
       Html.div [class "fg", style [("width", toString (min pct 100) ++ "%")]] [
         Html.span [class "glyph"] [
-          -- Html.span [class "embedded-duration"] [Html.text (toString (round <| 15 * (toFloat pct / 100.0)) ++ "m")],
+          Html.span [class "embedded-duration"] [Html.text (toString (round <| 15 * (toFloat pct / 100.0)) ++ "m")],
           Html.i [class ("fa " ++ iconForStatus status)] []
         ]
       ],

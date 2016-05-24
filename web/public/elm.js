@@ -2024,10 +2024,11 @@ function toEffect(isCmd, home, taggers, value)
 {
 	function applyTaggers(x)
 	{
-		while (taggers)
+		var temp = taggers;
+		while (temp)
 		{
-			x = taggers.tagger(x);
-			taggers = taggers.rest;
+			x = temp.tagger(x);
+			temp = temp.rest;
 		}
 		return x;
 	}
@@ -5082,7 +5083,10 @@ function badOneOf(problems)
 	return { tag: 'oneOf', problems: problems };
 }
 
-var bad = { tag: 'fail' };
+function bad(msg)
+{
+	return { tag: 'fail', msg: msg };
+}
 
 function badToString(problem)
 {
@@ -5118,7 +5122,8 @@ function badToString(problem)
 
 			case 'fail':
 				return 'I ran into a `fail` decoder'
-					+ (context === '_' ? '' : ' at ' + context);
+					+ (context === '_' ? '' : ' at ' + context)
+					+ ': ' + problem.msg;
 		}
 	}
 }
@@ -5165,14 +5170,19 @@ function runHelp(decoder, value)
 				: badPrimitive('a Bool', value);
 
 		case 'int':
-			var isNotInt =
-				typeof value !== 'number'
-				|| !(-2147483647 < value && value < 2147483647 && (value | 0) === value)
-				|| !(isFinite(value) && !(value % 1));
+			if (typeof value !== 'number') {
+				return badPrimitive('an Int', value);
+			}
 
-			return isNotInt
-				? badPrimitive('an Int', value)
-				: ok(value);
+			if (-2147483647 < value && value < 2147483647 && (value | 0) === value) {
+				return ok(value);
+			}
+
+			if (isFinite(value) && !(value % 1)) {
+				return ok(value);
+			}
+
+			return badPrimitive('an Int', value);
 
 		case 'float':
 			return (typeof value === 'number')
@@ -5252,7 +5262,7 @@ function runHelp(decoder, value)
 		case 'key-value':
 			if (typeof value !== 'object' || value === null || value instanceof Array)
 			{
-				return err('an object', value);
+				return badPrimitive('an object', value);
 			}
 
 			var keyValuePairs = _elm_lang$core$Native_List.Nil;
@@ -5341,7 +5351,7 @@ function runHelp(decoder, value)
 			return badOneOf(errors);
 
 		case 'fail':
-			return bad;
+			return bad(decoder.msg);
 
 		case 'succeed':
 			return ok(decoder.msg);
@@ -14147,9 +14157,10 @@ var _concourse$atc$Build$Model = F4(
 	function (a, b, c, d) {
 		return {now: a, job: b, history: c, currentBuild: d};
 	});
-var _concourse$atc$Build$Flags = function (a) {
-	return {buildId: a};
-};
+var _concourse$atc$Build$Flags = F2(
+	function (a, b) {
+		return {buildId: a, now: b};
+	});
 var _concourse$atc$Build$LoginRequired = {ctor: 'LoginRequired'};
 var _concourse$atc$Build$StepsComplete = {ctor: 'StepsComplete'};
 var _concourse$atc$Build$StepsLiveUpdating = {ctor: 'StepsLiveUpdating'};
@@ -14282,8 +14293,8 @@ var _concourse$atc$Build$handleHistoryFetched = F2(
 				return _elm_lang$core$Native_Utils.crashCase(
 					'Build',
 					{
-						start: {line: 240, column: 5},
-						end: {line: 248, column: 33}
+						start: {line: 241, column: 5},
+						end: {line: 249, column: 33}
 					},
 					_p17)('impossible');
 			}
@@ -14930,8 +14941,8 @@ var _concourse$atc$Build$update = F2(
 					return _elm_lang$core$Native_Utils.crashCase(
 						'Build',
 						{
-							start: {line: 121, column: 7},
-							end: {line: 129, column: 77}
+							start: {line: 122, column: 7},
+							end: {line: 130, column: 77}
 						},
 						_p42)('impossible (received action for missing BuildOutput)');
 				}
@@ -15009,7 +15020,7 @@ var _concourse$atc$Build$update = F2(
 	});
 var _concourse$atc$Build$init = function (flags) {
 	var model = {
-		now: 0,
+		now: flags.now,
 		job: _elm_lang$core$Maybe$Nothing,
 		history: _elm_lang$core$Native_List.fromArray(
 			[]),
@@ -15159,22 +15170,6 @@ var _concourse$atc$Navigation$buildEvent = F2(
 					_elm_lang$core$Native_List.fromArray(
 						[
 							A2(
-							_elm_lang$html$Html$span,
-							_elm_lang$core$Native_List.fromArray(
-								[
-									_elm_lang$html$Html_Attributes$class('fixed-duration')
-								]),
-							_elm_lang$core$Native_List.fromArray(
-								[
-									_elm_lang$html$Html$text(
-									A2(
-										_elm_lang$core$Basics_ops['++'],
-										_elm_lang$core$Basics$toString(
-											_elm_lang$core$Basics$round(
-												15 * (_elm_lang$core$Basics$toFloat(pct) / 100.0))),
-										'm'))
-								])),
-							A2(
 							_elm_lang$html$Html$div,
 							_elm_lang$core$Native_List.fromArray(
 								[
@@ -15203,6 +15198,22 @@ var _concourse$atc$Navigation$buildEvent = F2(
 										]),
 									_elm_lang$core$Native_List.fromArray(
 										[
+											A2(
+											_elm_lang$html$Html$span,
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html_Attributes$class('embedded-duration')
+												]),
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html$text(
+													A2(
+														_elm_lang$core$Basics_ops['++'],
+														_elm_lang$core$Basics$toString(
+															_elm_lang$core$Basics$round(
+																15 * (_elm_lang$core$Basics$toFloat(pct) / 100.0))),
+														'm'))
+												])),
 											A2(
 											_elm_lang$html$Html$i,
 											_elm_lang$core$Native_List.fromArray(
@@ -15343,6 +15354,72 @@ var _concourse$atc$Navigation$view = F2(
 					_elm_lang$core$Native_List.fromArray(
 						[
 							A2(
+							_elm_lang$html$Html$div,
+							_elm_lang$core$Native_List.fromArray(
+								[
+									_elm_lang$html$Html_Attributes$class('breadcrumb')
+								]),
+							_elm_lang$core$Native_List.fromArray(
+								[
+									A2(
+									_elm_lang$html$Html$span,
+									_elm_lang$core$Native_List.fromArray(
+										[
+											_elm_lang$html$Html_Attributes$class('crumb tier1')
+										]),
+									_elm_lang$core$Native_List.fromArray(
+										[
+											A2(
+											_elm_lang$html$Html$a,
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html_Attributes$href('google.com')
+												]),
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html$text('main')
+												]))
+										])),
+									A2(
+									_elm_lang$html$Html$span,
+									_elm_lang$core$Native_List.fromArray(
+										[
+											_elm_lang$html$Html_Attributes$class('crumb tier2')
+										]),
+									_elm_lang$core$Native_List.fromArray(
+										[
+											A2(
+											_elm_lang$html$Html$a,
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html_Attributes$href('google.com')
+												]),
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html$text('main')
+												]))
+										])),
+									A2(
+									_elm_lang$html$Html$span,
+									_elm_lang$core$Native_List.fromArray(
+										[
+											_elm_lang$html$Html_Attributes$class('crumb tier3')
+										]),
+									_elm_lang$core$Native_List.fromArray(
+										[
+											A2(
+											_elm_lang$html$Html$a,
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html_Attributes$href('google.com')
+												]),
+											_elm_lang$core$Native_List.fromArray(
+												[
+													_elm_lang$html$Html$text('main')
+												]))
+										]))
+								])),
+							A2(
 							_elm_lang$html$Html_App$map,
 							_concourse$atc$Navigation$SubAction,
 							subView(model.subModel))
@@ -15435,8 +15512,13 @@ var _concourse$atc$BuildPage$main = {
 				_elm_lang$core$Json_Decode$andThen,
 				A2(_elm_lang$core$Json_Decode_ops[':='], 'buildId', _elm_lang$core$Json_Decode$int),
 				function (buildId) {
-					return _elm_lang$core$Json_Decode$succeed(
-						{buildId: buildId});
+					return A2(
+						_elm_lang$core$Json_Decode$andThen,
+						A2(_elm_lang$core$Json_Decode_ops[':='], 'now', _elm_lang$core$Json_Decode$float),
+						function (now) {
+							return _elm_lang$core$Json_Decode$succeed(
+								{buildId: buildId, now: now});
+						});
 				})),
 		function (buildFlags) {
 			return A2(
