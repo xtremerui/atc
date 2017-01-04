@@ -181,31 +181,6 @@ type containerProvider struct {
 	clock clock.Clock
 }
 
-// TODO split this method into different methods:
-// FindOrCreateBuildContainer, FindOrCreateResourceCheckContainer, FindOrCreateResourceGetContainer, FindOrCreateResourceTypeCheckContainer
-// (called <METHODS> bellow)
-//
-// * private findOrCreateContainer takes in also funcs to find and create in dbng separately.
-// So these methods will be different depending on what this container is created for.
-// See volume_client how findOrCreateVolume is used and different dbng methods for find or create are provided
-// depending what the volume is being created for.
-//
-// * use <METHODS> in worker/worker instead of FindOrCreateContainer appropriately
-// worker/worker already has separate methods for containers so move logic for these methods from worker/worker down here
-// see how volume_client is used in worker/worker
-//
-// * dbng ContainerFactory has methods to create containers for different purposed but not find.
-// See dbng.VolumeFactory how each create has a corresponding find
-//
-// * make sure testflight pass before fixing unit tests
-//
-// p.findOrCreateContainer has no unit test coverage. Please add. See volume_client_test how the behaviour is tested for volumes
-// different cases, e.g. container found in DB but not found in garden. If it is created container we raise error.
-// If it is creating container, that means that ATC might have failed after container was created in DB but not in garden.
-// So create in garden. Mark as created. We use lock so that if two threads find it in this state only one will create in garden.
-//
-// * have fun!
-
 func (p *containerProvider) FindOrCreateBuildContainer(
 	logger lager.Logger,
 	cancel <-chan os.Signal,
@@ -226,7 +201,20 @@ func (p *containerProvider) FindOrCreateBuildContainer(
 		resourceTypes,
 		outputPaths,
 		func() (dbng.CreatingContainer, dbng.CreatedContainer, error) {
-			return nil, nil, nil
+			return p.dbContainerFactory.FindBuildContainer(
+				&dbng.Worker{
+					Name:       p.worker.Name(),
+					GardenAddr: p.worker.Address(),
+				},
+				&dbng.Build{
+					ID: id.BuildID,
+				},
+				id.PlanID,
+				dbng.ContainerMetadata{
+					Name: metadata.StepName,
+					Type: string(metadata.Type),
+				},
+			)
 		},
 		func() (dbng.CreatingContainer, error) {
 			return p.dbContainerFactory.CreateBuildContainer(
@@ -258,6 +246,21 @@ func (p *containerProvider) FindOrCreateResourceCheckContainer(
 	resourceType string,
 	source atc.Source,
 ) (Container, error) {
+	resourceConfig, err := p.dbResourceConfigFactory.FindOrCreateResourceConfigForResource(
+		logger,
+		&dbng.Resource{
+			ID: id.ResourceID,
+		},
+		resourceType,
+		source,
+		&dbng.Pipeline{ID: metadata.PipelineID},
+		resourceTypes,
+	)
+	if err != nil {
+		logger.Error("failed-to-get-resource-config", err)
+		return nil, err
+	}
+
 	return p.findOrCreateContainer(
 		logger,
 		cancel,
@@ -268,24 +271,15 @@ func (p *containerProvider) FindOrCreateResourceCheckContainer(
 		resourceTypes,
 		map[string]string{},
 		func() (dbng.CreatingContainer, dbng.CreatedContainer, error) {
-			return nil, nil, nil
+			return p.dbContainerFactory.FindResourceCheckContainer(
+				&dbng.Worker{
+					Name:       p.worker.Name(),
+					GardenAddr: p.worker.Address(),
+				},
+				resourceConfig,
+			)
 		},
 		func() (dbng.CreatingContainer, error) {
-			resourceConfig, err := p.dbResourceConfigFactory.FindOrCreateResourceConfigForResource(
-				logger,
-				&dbng.Resource{
-					ID: id.ResourceID,
-				},
-				resourceType,
-				source,
-				&dbng.Pipeline{ID: metadata.PipelineID},
-				resourceTypes,
-			)
-			if err != nil {
-				logger.Error("failed-to-get-resource-config", err)
-				return nil, err
-			}
-
 			return p.dbContainerFactory.CreateResourceCheckContainer(
 				&dbng.Worker{
 					Name:       p.worker.Name(),
@@ -308,6 +302,17 @@ func (p *containerProvider) FindOrCreateResourceTypeCheckContainer(
 	resourceTypeName string,
 	source atc.Source,
 ) (Container, error) {
+	resourceConfig, err := p.dbResourceConfigFactory.FindOrCreateResourceConfigForResourceType(
+		logger,
+		resourceTypeName,
+		source,
+		&dbng.Pipeline{ID: metadata.PipelineID},
+		resourceTypes,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return p.findOrCreateContainer(
 		logger,
 		cancel,
@@ -318,20 +323,15 @@ func (p *containerProvider) FindOrCreateResourceTypeCheckContainer(
 		resourceTypes,
 		map[string]string{},
 		func() (dbng.CreatingContainer, dbng.CreatedContainer, error) {
-			return nil, nil, nil
+			return p.dbContainerFactory.FindResourceCheckContainer(
+				&dbng.Worker{
+					Name:       p.worker.Name(),
+					GardenAddr: p.worker.Address(),
+				},
+				resourceConfig,
+			)
 		},
 		func() (dbng.CreatingContainer, error) {
-			resourceConfig, err := p.dbResourceConfigFactory.FindOrCreateResourceConfigForResourceType(
-				logger,
-				resourceTypeName,
-				source,
-				&dbng.Pipeline{ID: metadata.PipelineID},
-				resourceTypes,
-			)
-			if err != nil {
-				return nil, err
-			}
-
 			return p.dbContainerFactory.CreateResourceCheckContainer(
 				&dbng.Worker{
 					Name:       p.worker.Name(),
@@ -357,6 +357,59 @@ func (p *containerProvider) FindOrCreateResourceGetContainer(
 	source atc.Source,
 	params atc.Params,
 ) (Container, error) {
+	var resourceCache *dbng.UsedResourceCache
+
+	if id.BuildID != 0 {
+		var err error
+		resourceCache, err = p.dbResourceCacheFactory.FindOrCreateResourceCacheForBuild(
+			logger,
+			&dbng.Build{ID: id.BuildID},
+			resourceTypeName,
+			version,
+			source,
+			params,
+			&dbng.Pipeline{ID: metadata.PipelineID},
+			resourceTypes,
+		)
+		if err != nil {
+			logger.Error("failed-to-get-resource-cache-for-build", err, lager.Data{"build-id": id.BuildID})
+			return nil, err
+		}
+	} else if id.ResourceID != 0 {
+		var err error
+		resourceCache, err = p.dbResourceCacheFactory.FindOrCreateResourceCacheForResource(
+			logger,
+			&dbng.Resource{
+				ID: id.ResourceID,
+			},
+			resourceTypeName,
+			version,
+			source,
+			params,
+			&dbng.Pipeline{ID: metadata.PipelineID},
+			resourceTypes,
+		)
+		if err != nil {
+			logger.Error("failed-to-get-resource-cache-for-resource", err, lager.Data{"resource-id": id.ResourceID})
+			return nil, err
+		}
+	} else {
+		var err error
+		resourceCache, err = p.dbResourceCacheFactory.FindOrCreateResourceCacheForResourceType(
+			logger,
+			resourceTypeName,
+			version,
+			source,
+			params,
+			&dbng.Pipeline{ID: metadata.PipelineID},
+			resourceTypes,
+		)
+		if err != nil {
+			logger.Error("failed-to-get-resource-cache-for-resource-type", err, lager.Data{"resource-type": resourceTypeName})
+			return nil, err
+		}
+	}
+
 	return p.findOrCreateContainer(
 		logger,
 		cancel,
@@ -367,62 +420,16 @@ func (p *containerProvider) FindOrCreateResourceGetContainer(
 		resourceTypes,
 		map[string]string{},
 		func() (dbng.CreatingContainer, dbng.CreatedContainer, error) {
-			return nil, nil, nil
+			return p.dbContainerFactory.FindResourceGetContainer(
+				&dbng.Worker{
+					Name:       p.worker.Name(),
+					GardenAddr: p.worker.Address(),
+				},
+				resourceCache,
+				metadata.StepName,
+			)
 		},
 		func() (dbng.CreatingContainer, error) {
-			var resourceCache *dbng.UsedResourceCache
-
-			if id.BuildID != 0 {
-				var err error
-				resourceCache, err = p.dbResourceCacheFactory.FindOrCreateResourceCacheForBuild(
-					logger,
-					&dbng.Build{ID: id.BuildID},
-					resourceTypeName,
-					version,
-					source,
-					params,
-					&dbng.Pipeline{ID: metadata.PipelineID},
-					resourceTypes,
-				)
-				if err != nil {
-					logger.Error("failed-to-get-resource-cache-for-build", err, lager.Data{"build-id": id.BuildID})
-					return nil, err
-				}
-			} else if id.ResourceID != 0 {
-				var err error
-				resourceCache, err = p.dbResourceCacheFactory.FindOrCreateResourceCacheForResource(
-					logger,
-					&dbng.Resource{
-						ID: id.ResourceID,
-					},
-					resourceTypeName,
-					version,
-					source,
-					params,
-					&dbng.Pipeline{ID: metadata.PipelineID},
-					resourceTypes,
-				)
-				if err != nil {
-					logger.Error("failed-to-get-resource-cache-for-resource", err, lager.Data{"resource-id": id.ResourceID})
-					return nil, err
-				}
-			} else {
-				var err error
-				resourceCache, err = p.dbResourceCacheFactory.FindOrCreateResourceCacheForResourceType(
-					logger,
-					resourceTypeName,
-					version,
-					source,
-					params,
-					&dbng.Pipeline{ID: metadata.PipelineID},
-					resourceTypes,
-				)
-				if err != nil {
-					logger.Error("failed-to-get-resource-cache-for-resource-type", err, lager.Data{"resource-type": resourceTypeName})
-					return nil, err
-				}
-			}
-
 			return p.dbContainerFactory.CreateResourceGetContainer(
 				&dbng.Worker{
 					Name:       p.worker.Name(),
@@ -529,7 +536,7 @@ func (p *containerProvider) findOrCreateContainer(
 		)
 	} else {
 		if creatingContainer != nil {
-			gardenContainer, err = p.gardenClient.Lookup(createdContainer.Handle())
+			gardenContainer, err = p.gardenClient.Lookup(creatingContainer.Handle())
 			if err != nil {
 				if _, ok := err.(garden.ContainerNotFoundError); !ok {
 					logger.Error("failed-to-lookup-creating-container-in-garden", err)
