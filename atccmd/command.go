@@ -682,7 +682,10 @@ func (cmd *ATCCommand) loadOrGenerateSigningKey() (*rsa.PrivateKey, error) {
 }
 
 func (cmd *ATCCommand) configureAuthForDefaultTeam(teamDBFactory db.TeamDBFactory) error {
-	teamDB := teamDBFactory.GetTeamDB(atc.DefaultTeamName)
+	teamDB, err := teamDBFactory.GetTeamDBByName(atc.DefaultTeamName)
+	if err != nil {
+		return err
+	}
 
 	var basicAuth *db.BasicAuth
 	if cmd.Authentication.BasicAuth.IsConfigured() {
@@ -691,7 +694,7 @@ func (cmd *ATCCommand) configureAuthForDefaultTeam(teamDBFactory db.TeamDBFactor
 			BasicAuthPassword: cmd.Authentication.BasicAuth.Password,
 		}
 	}
-	_, err := teamDB.UpdateBasicAuth(basicAuth)
+	_, err = teamDB.UpdateBasicAuth(basicAuth)
 	if err != nil {
 		return err
 	}
