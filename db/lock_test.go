@@ -32,6 +32,7 @@ var _ = Describe("Locks", func() {
 		teamDB     db.TeamDB
 
 		logger *lagertest.TestLogger
+		err    error
 	)
 
 	BeforeEach(func() {
@@ -54,7 +55,7 @@ var _ = Describe("Locks", func() {
 		pipelineDBFactory = db.NewPipelineDBFactory(dbConn, bus, lockFactory)
 
 		teamDBFactory = db.NewTeamDBFactory(dbConn, bus, lockFactory)
-		teamDB, err := teamDBFactory.GetTeamDBByName(atc.DefaultTeamName)
+		teamDB, err = teamDBFactory.GetTeamDBByName(atc.DefaultTeamName)
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = sqlDB.CreateTeam(db.Team{Name: "some-team"})
