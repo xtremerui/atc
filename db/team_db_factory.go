@@ -36,6 +36,8 @@ func (f *teamDBFactory) GetTeamDBById(teamId int) TeamDB {
 
 func (f *teamDBFactory) GetTeamDBByName(teamName string) (TeamDB, error) {
 	var id int
+	var team TeamDB
+
 	row := f.conn.QueryRow(`
 	SELECT id FROM teams WHERE LOWER(name) = LOWER($1)
 `, teamName)
@@ -43,12 +45,11 @@ func (f *teamDBFactory) GetTeamDBByName(teamName string) (TeamDB, error) {
 	err := row.Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.New("This team does not exist in db")
+			return team, errors.New("This team does not exist in db")
 		}
-
-		return nil, err
+		return team, err
 	}
 
-	team := f.GetTeamDBById(id)
+	team = f.GetTeamDBById(id)
 	return team, nil
 }

@@ -418,7 +418,8 @@ var _ = Describe("PipelineDB", func() {
 		var teamDB db.TeamDB
 
 		BeforeEach(func() {
-			_, err := teamDBFactory.GetTeamDBByName("some-team")
+			var err error
+			teamDB, err = teamDBFactory.GetTeamDBByName("some-team")
 			Expect(err).NotTo(HaveOccurred())
 		})
 

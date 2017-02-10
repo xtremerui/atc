@@ -54,8 +54,6 @@ var _ = Describe("TeamDB", func() {
 
 		teamDB, err = teamDBFactory.GetTeamDBByName("team-NAME")
 		Expect(err).NotTo(HaveOccurred())
-		nonExistentTeamDB, err = teamDBFactory.GetTeamDBByName("non-existent-name")
-		Expect(err).NotTo(HaveOccurred())
 
 		pipelineDBFactory = db.NewPipelineDBFactory(dbConn, bus, lockFactory)
 
@@ -459,10 +457,11 @@ var _ = Describe("TeamDB", func() {
 			Expect(actualTeam.Name).To(Equal("TEAM-name"))
 		})
 
-		It("returns false with no error when the team does not exist", func() {
-			_, found, err := nonExistentTeamDB.GetTeam()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(found).To(BeFalse())
+		It("returns an error when the team does not exist", func() {
+			var err error
+			nonExistentTeamDB, err = teamDBFactory.GetTeamDBByName("non-existent-name")
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("This team does not exist in db")))
 		})
 	})
 
@@ -565,6 +564,12 @@ var _ = Describe("TeamDB", func() {
 		})
 
 		It("returns shared workers if current team has no workers", func() {
+			noWorkersteam := db.Team{Name: "no-workers-team-name"}
+			var err error
+
+			_, err = database.CreateTeam(noWorkersteam)
+			Expect(err).NotTo(HaveOccurred())
+
 			noWorkersTeamDB, err := teamDBFactory.GetTeamDBByName("no-workers-team-name")
 			Expect(err).NotTo(HaveOccurred())
 			workers, err := noWorkersTeamDB.Workers()

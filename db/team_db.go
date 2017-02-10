@@ -21,7 +21,6 @@ type TeamDB interface {
 
 	OrderPipelines([]string) error
 
-	GetTeamIdByName(teamName string) (int, bool, error)
 	GetTeam() (SavedTeam, bool, error)
 	UpdateName(teamName string) (SavedTeam, error)
 	UpdateBasicAuth(basicAuth *BasicAuth) (SavedTeam, error)
@@ -197,11 +196,7 @@ func (db *teamDB) GetConfig(pipelineName string) (atc.Config, atc.RawConfig, Con
 	err := db.conn.QueryRow(`
 		SELECT config, version
 		FROM pipelines
-		WHERE name = $1 AND team_id = (
-			SELECT id
-			FROM teams
-			WHERE t.id = $2
-		)
+		WHERE name = $1 AND team_id = $2
 	`, pipelineName, db.teamId).Scan(&configBlob, &version)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -240,8 +235,8 @@ func (db *teamDB) SaveConfigToBeDeprecated(
 
 	var created bool
 	var savedPipeline SavedPipeline
-
 	var existingConfig int
+
 	err = tx.QueryRow(`
 		SELECT COUNT(1)
 		FROM pipelines
@@ -502,24 +497,6 @@ func (db *teamDB) saveResourceType(tx Tx, resourceType atc.ResourceType, pipelin
 	return swallowUniqueViolation(err)
 }
 
-func (db *teamDB) GetTeamIdByName(teamName string) (int, bool, error) {
-	var id int
-	row := db.conn.QueryRow(`
-	SELECT id FROM teams WHERE LOWER(name) = LOWER($1)
-`, teamName)
-
-	err := row.Scan(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return -1, false, nil
-		}
-
-		return -1, false, err
-	}
-
-	return id, true, nil
-}
-
 func (db *teamDB) GetTeam() (SavedTeam, bool, error) {
 	query := `
 		SELECT id, name, admin, basic_auth, github_auth, uaa_auth, genericoauth_auth
@@ -695,9 +672,9 @@ func (db *teamDB) CreateOneOffBuild() (Build, error) {
 		FROM teams t WHERE t.id = $1
 		RETURNING `+buildColumns+`, null, null, null,
 		(
-			SELECT name FROM teams WHERE t.id = $1
+			SELECT name FROM teams WHERE id = $1
 		)
-	`, string(db.teamId)))
+	`, db.teamId))
 	if err != nil {
 		return nil, err
 	}
