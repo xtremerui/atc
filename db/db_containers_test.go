@@ -80,7 +80,7 @@ var _ = Describe("Keeping track of containers", func() {
 		teamID = savedTeam.ID
 
 		teamDBFactory := db.NewTeamDBFactory(dbConn, bus, lockFactory)
-		teamDB, err = teamDBFactory.GetTeamDBByName("team-name")
+		teamDB, _, err = teamDBFactory.GetTeamDBByName("team-name")
 		Expect(err).NotTo(HaveOccurred())
 
 		build, err = teamDB.CreateOneOffBuild()

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sort"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/auth"
 	"github.com/concourse/atc/auth/genericoauth"
@@ -20,10 +22,15 @@ const BasicAuthDisplayName = "Basic Auth"
 
 func (s *Server) ListAuthMethods(w http.ResponseWriter, r *http.Request) {
 	teamName := r.FormValue(":team_name")
-	teamDB, err := s.teamDBFactory.GetTeamDBByName(teamName)
+	teamDB, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 	if err != nil {
 		s.logger.Error("failed-to-get-team", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		s.logger.Debug("team-not-found", lager.Data{"team-name": teamName})
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -34,7 +41,7 @@ func (s *Server) ListAuthMethods(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !found {
-		s.logger.Info("team-not-found")
+		s.logger.Debug("team-not-found", lager.Data{"team-name": teamName})
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

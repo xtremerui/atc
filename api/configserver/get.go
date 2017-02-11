@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/concourse/atc"
 	"github.com/tedsuo/rata"
 )
@@ -12,10 +14,16 @@ import (
 func (s *Server) GetConfig(w http.ResponseWriter, r *http.Request) {
 	logger := s.logger.Session("get-config")
 	pipelineName := rata.Param(r, "pipeline_name")
-	teamDB, err := s.teamDBFactory.GetTeamDBByName(rata.Param(r, "team_name"))
+	teamName := rata.Param(r, "team_name")
+	teamDB, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 	if err != nil {
 		logger.Error("failed-to-get-team", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		logger.Debug("team-not-found", lager.Data{"team-name": teamName})
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	config, rawConfig, id, err := teamDB.GetConfig(pipelineName)

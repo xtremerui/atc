@@ -42,9 +42,9 @@ var _ = Describe("TeamDB Volumes", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		teamDBFactory := db.NewTeamDBFactory(dbConn, bus, lockFactory)
-		teamDB, err = teamDBFactory.GetTeamDBByName("some-team")
+		teamDB, _, err = teamDBFactory.GetTeamDBByName("some-team")
 		Expect(err).NotTo(HaveOccurred())
-		otherTeamDB, err = teamDBFactory.GetTeamDBByName("other-team")
+		otherTeamDB, _, err = teamDBFactory.GetTeamDBByName("other-team")
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = database.SaveWorker(db.WorkerInfo{

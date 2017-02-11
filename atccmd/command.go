@@ -682,7 +682,7 @@ func (cmd *ATCCommand) loadOrGenerateSigningKey() (*rsa.PrivateKey, error) {
 }
 
 func (cmd *ATCCommand) configureAuthForDefaultTeam(teamDBFactory db.TeamDBFactory) error {
-	teamDB, err := teamDBFactory.GetTeamDBByName(atc.DefaultTeamName)
+	teamDB, _, err := teamDBFactory.GetTeamDBByName(atc.DefaultTeamName)
 	if err != nil {
 		return err
 	}

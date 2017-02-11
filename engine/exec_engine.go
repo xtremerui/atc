@@ -16,6 +16,14 @@ import (
 	"github.com/tedsuo/ifrit"
 )
 
+type ErrTeamNotFound struct {
+	teamName string
+}
+
+func (e ErrTeamNotFound) Error() string {
+	return fmt.Sprintf("team not found: %s", e.teamName)
+}
+
 type execMetadata struct {
 	Plan atc.Plan
 }
@@ -77,7 +85,17 @@ func (engine *execEngine) LookupBuild(logger lager.Logger, build db.Build) (Buil
 		return nil, err
 	}
 
-	err = atc.NewPlanTraversal(engine.convertPipelineNameToID(build.TeamName())).Traverse(&metadata.Plan)
+	teamDB, found, err := engine.teamDBFactory.GetTeamDBByName(build.TeamName())
+	if err != nil {
+		logger.Error("failed-to-get-team", err)
+		return nil, err
+	}
+	if !found {
+		logger.Error("team-not-found", ErrTeamNotFound{build.TeamName()})
+		return nil, ErrTeamNotFound{build.TeamName()}
+	}
+
+	err = atc.NewPlanTraversal(engine.convertPipelineNameToID(teamDB)).Traverse(&metadata.Plan)
 	if err != nil {
 		return nil, err
 	}
@@ -99,14 +117,8 @@ func (engine *execEngine) LookupBuild(logger lager.Logger, build db.Build) (Buil
 	}, nil
 }
 
-func (engine *execEngine) convertPipelineNameToID(teamName string) func(plan *atc.Plan) error {
-	teamDB, err := engine.teamDBFactory.GetTeamDBByName(teamName)
-
+func (engine *execEngine) convertPipelineNameToID(teamDB db.TeamDB) func(plan *atc.Plan) error {
 	return func(plan *atc.Plan) error {
-		if err != nil {
-			return err
-		}
-
 		var pipelineName *string
 		var pipelineID *int
 

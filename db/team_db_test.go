@@ -24,7 +24,6 @@ var _ = Describe("TeamDB", func() {
 
 		teamDB            db.TeamDB
 		otherTeamDB       db.TeamDB
-		nonExistentTeamDB db.TeamDB
 		savedTeam         db.SavedTeam
 		otherSavedTeam    db.SavedTeam
 		pipelineDBFactory db.PipelineDBFactory
@@ -52,7 +51,7 @@ var _ = Describe("TeamDB", func() {
 		savedTeam, err = database.CreateTeam(team)
 		Expect(err).NotTo(HaveOccurred())
 
-		teamDB, err = teamDBFactory.GetTeamDBByName("team-NAME")
+		teamDB, _, err = teamDBFactory.GetTeamDBByName("team-NAME")
 		Expect(err).NotTo(HaveOccurred())
 
 		pipelineDBFactory = db.NewPipelineDBFactory(dbConn, bus, lockFactory)
@@ -60,7 +59,7 @@ var _ = Describe("TeamDB", func() {
 		team = db.Team{Name: "other-team-name"}
 		otherSavedTeam, err = database.CreateTeam(team)
 		Expect(err).NotTo(HaveOccurred())
-		otherTeamDB, err = teamDBFactory.GetTeamDBByName("other-team-name")
+		otherTeamDB, _, err = teamDBFactory.GetTeamDBByName("other-team-name")
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -457,11 +456,10 @@ var _ = Describe("TeamDB", func() {
 			Expect(actualTeam.Name).To(Equal("TEAM-name"))
 		})
 
-		It("returns an error when the team does not exist", func() {
-			var err error
-			nonExistentTeamDB, err = teamDBFactory.GetTeamDBByName("non-existent-name")
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("This team does not exist in db")))
+		It("returns not found when the team does not exist", func() {
+			_, found, err := teamDBFactory.GetTeamDBByName("non-existent-name")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found).To(BeFalse())
 		})
 	})
 
@@ -570,7 +568,7 @@ var _ = Describe("TeamDB", func() {
 			_, err = database.CreateTeam(noWorkersteam)
 			Expect(err).NotTo(HaveOccurred())
 
-			noWorkersTeamDB, err := teamDBFactory.GetTeamDBByName("no-workers-team-name")
+			noWorkersTeamDB, _, err := teamDBFactory.GetTeamDBByName("no-workers-team-name")
 			Expect(err).NotTo(HaveOccurred())
 			workers, err := noWorkersTeamDB.Workers()
 			Expect(err).NotTo(HaveOccurred())
@@ -697,9 +695,9 @@ var _ = Describe("TeamDB", func() {
 					_, err = database.CreateTeam(db.Team{Name: "team-b"})
 					Expect(err).NotTo(HaveOccurred())
 
-					caseInsensitiveTeamADB, err = teamDBFactory.GetTeamDBByName("team-A")
+					caseInsensitiveTeamADB, _, err = teamDBFactory.GetTeamDBByName("team-A")
 					Expect(err).NotTo(HaveOccurred())
-					caseInsensitiveTeamBDB, err = teamDBFactory.GetTeamDBByName("team-B")
+					caseInsensitiveTeamBDB, _, err = teamDBFactory.GetTeamDBByName("team-B")
 					Expect(err).NotTo(HaveOccurred())
 
 					for i := 0; i < 3; i++ {

@@ -56,7 +56,7 @@ var _ = Describe("Keeping track of volumes", func() {
 			},
 		}
 		teamDBFactory := db.NewTeamDBFactory(dbConn, bus, lockFactory)
-		teamDB, err = teamDBFactory.GetTeamDBByName("some-team")
+		teamDB, _, err = teamDBFactory.GetTeamDBByName("some-team")
 		Expect(err).NotTo(HaveOccurred())
 		savedPipeline, _, err := teamDB.SaveConfigToBeDeprecated("some-pipeline", config, db.ConfigVersion(1), db.PipelineUnpaused)
 		Expect(err).NotTo(HaveOccurred())

@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/concourse/atc/api/present"
 	"github.com/concourse/atc/auth"
 	"github.com/concourse/atc/db"
@@ -64,12 +66,18 @@ func (s *Server) RenameTeam(w http.ResponseWriter, r *http.Request) {
 
 	if found {
 		hLog.Debug("updating team name")
-		teamDb, err := s.teamDBFactory.GetTeamDBByName(teamName)
+		teamDb, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 		if err != nil {
 			s.logger.Error("failed-to-get-team", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		if !found {
+			s.logger.Debug("team-not-found", lager.Data{"team-name": teamName})
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		savedTeam, err = teamDb.UpdateName(value.Name)
 
 		if err != nil {
@@ -89,9 +97,12 @@ func (s *Server) RenameTeam(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getTeamByName(teamName string) (db.SavedTeam, bool, error) {
-	teamDB, err := s.teamDBFactory.GetTeamDBByName(teamName)
+	teamDB, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 	if err != nil {
 		return db.SavedTeam{}, false, err
+	}
+	if !found {
+		return db.SavedTeam{}, false, nil
 	}
 	return teamDB.GetTeam()
 }

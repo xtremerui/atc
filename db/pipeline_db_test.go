@@ -213,7 +213,7 @@ var _ = Describe("PipelineDB", func() {
 		savedTeam, err = sqlDB.CreateTeam(db.Team{Name: "some-team"})
 		Expect(err).NotTo(HaveOccurred())
 
-		teamDB, err = teamDBFactory.GetTeamDBByName("some-team")
+		teamDB, _, err = teamDBFactory.GetTeamDBByName("some-team")
 		Expect(err).NotTo(HaveOccurred())
 
 		savedPipeline, _, err = teamDB.SaveConfigToBeDeprecated("a-pipeline-name", pipelineConfig, 0, db.PipelineUnpaused)
@@ -419,7 +419,7 @@ var _ = Describe("PipelineDB", func() {
 
 		BeforeEach(func() {
 			var err error
-			teamDB, err = teamDBFactory.GetTeamDBByName("some-team")
+			teamDB, _, err = teamDBFactory.GetTeamDBByName("some-team")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -443,7 +443,7 @@ var _ = Describe("PipelineDB", func() {
 				team2, err = sqlDB.CreateTeam(db.Team{Name: "some-other-team"})
 				Expect(err).NotTo(HaveOccurred())
 
-				team2DB, err = teamDBFactory.GetTeamDBByName(team2.Name)
+				team2DB, _, err = teamDBFactory.GetTeamDBByName(team2.Name)
 				Expect(err).NotTo(HaveOccurred())
 				_, _, err = team2DB.SaveConfigToBeDeprecated("a-pipeline-name", pipelineConfig, 0, db.PipelineUnpaused)
 				Expect(err).NotTo(HaveOccurred())

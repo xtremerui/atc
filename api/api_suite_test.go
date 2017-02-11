@@ -97,7 +97,7 @@ var _ = BeforeEach(func() {
 	teamDBFactory = new(dbfakes.FakeTeamDBFactory)
 	teamServerDB = new(teamserverfakes.FakeTeamsDB)
 	teamDB = new(dbfakes.FakeTeamDB)
-	teamDBFactory.GetTeamDBByNameReturns(teamDB, nil)
+	teamDBFactory.GetTeamDBByNameReturns(teamDB, true, nil)
 	buildServerDB = new(buildserverfakes.FakeBuildsDB)
 	containerDB = new(containerserverfakes.FakeContainerDB)
 	volumesDB = new(volumeserverfakes.FakeVolumesDB)

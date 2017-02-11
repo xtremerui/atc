@@ -51,9 +51,13 @@ func (h checkPipelineAccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	pipelineName := r.FormValue(":pipeline_name")
 	requestTeamName := r.FormValue(":team_name")
 
-	teamDB, err := h.teamDBFactory.GetTeamDBByName(requestTeamName)
+	teamDB, found, err := h.teamDBFactory.GetTeamDBByName(requestTeamName)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 

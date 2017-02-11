@@ -29,9 +29,13 @@ func (pdbh *ScopedHandlerFactory) HandlerFor(pipelineScopedHandler func(db.Pipel
 			pipelineName := r.FormValue(":pipeline_name")
 			requestTeamName := r.FormValue(":team_name")
 
-			teamDB, err := pdbh.teamDBFactory.GetTeamDBByName(requestTeamName)
+			teamDB, found, err := pdbh.teamDBFactory.GetTeamDBByName(requestTeamName)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !found {
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 

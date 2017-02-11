@@ -16,14 +16,15 @@ type FakeTeamDBFactory struct {
 	getTeamDBByIdReturns struct {
 		result1 db.TeamDB
 	}
-	GetTeamDBByNameStub        func(string) (db.TeamDB, error)
+	GetTeamDBByNameStub        func(string) (db.TeamDB, bool, error)
 	getTeamDBByNameMutex       sync.RWMutex
 	getTeamDBByNameArgsForCall []struct {
 		arg1 string
 	}
 	getTeamDBByNameReturns struct {
 		result1 db.TeamDB
-		result2 error
+		result2 bool
+		result3 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -62,7 +63,7 @@ func (fake *FakeTeamDBFactory) GetTeamDBByIdReturns(result1 db.TeamDB) {
 	}{result1}
 }
 
-func (fake *FakeTeamDBFactory) GetTeamDBByName(arg1 string) (db.TeamDB, error) {
+func (fake *FakeTeamDBFactory) GetTeamDBByName(arg1 string) (db.TeamDB, bool, error) {
 	fake.getTeamDBByNameMutex.Lock()
 	fake.getTeamDBByNameArgsForCall = append(fake.getTeamDBByNameArgsForCall, struct {
 		arg1 string
@@ -72,7 +73,7 @@ func (fake *FakeTeamDBFactory) GetTeamDBByName(arg1 string) (db.TeamDB, error) {
 	if fake.GetTeamDBByNameStub != nil {
 		return fake.GetTeamDBByNameStub(arg1)
 	} else {
-		return fake.getTeamDBByNameReturns.result1, fake.getTeamDBByNameReturns.result2
+		return fake.getTeamDBByNameReturns.result1, fake.getTeamDBByNameReturns.result2, fake.getTeamDBByNameReturns.result3
 	}
 }
 
@@ -88,12 +89,13 @@ func (fake *FakeTeamDBFactory) GetTeamDBByNameArgsForCall(i int) string {
 	return fake.getTeamDBByNameArgsForCall[i].arg1
 }
 
-func (fake *FakeTeamDBFactory) GetTeamDBByNameReturns(result1 db.TeamDB, result2 error) {
+func (fake *FakeTeamDBFactory) GetTeamDBByNameReturns(result1 db.TeamDB, result2 bool, result3 error) {
 	fake.GetTeamDBByNameStub = nil
 	fake.getTeamDBByNameReturns = struct {
 		result1 db.TeamDB
-		result2 error
-	}{result1, result2}
+		result2 bool
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *FakeTeamDBFactory) Invocations() map[string][][]interface{} {

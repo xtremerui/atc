@@ -47,7 +47,7 @@ func atcDBTeamEquality(atcTeam atc.Team, dbTeam db.Team) {
 	}
 }
 
-var _ = Describe("Teams API", func() {
+var _ = FDescribe("Teams API", func() {
 	Describe("GET /api/v1/teams", func() {
 		var response *http.Response
 
@@ -189,6 +189,7 @@ var _ = Describe("Teams API", func() {
 					Name: teamName,
 				},
 			}
+			teamDBFactory.GetTeamDBByNameReturns(nil, false, nil)
 		})
 
 		Context("when the requester is authenticated for the right team (admin team)", func() {
@@ -504,7 +505,7 @@ var _ = Describe("Teams API", func() {
 
 			Context("when there's a problem finding teams", func() {
 				BeforeEach(func() {
-					teamDB.GetTeamReturns(db.SavedTeam{}, false, errors.New("a dingo ate my baby!"))
+					teamDBFactory.GetTeamDBByNameReturns(nil, false, errors.New("a dingo ate my baby!"))
 				})
 
 				It("returns 500 Internal Server Error", func() {
@@ -514,6 +515,7 @@ var _ = Describe("Teams API", func() {
 
 			Context("when team exists", func() {
 				BeforeEach(func() {
+					teamDBFactory.GetTeamDBByNameReturns(teamDB, true, nil)
 					teamDB.GetTeamReturns(savedTeam, true, nil)
 				})
 

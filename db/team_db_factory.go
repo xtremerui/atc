@@ -1,15 +1,11 @@
 package db
 
-import (
-	"database/sql"
-	"errors"
-)
+import "database/sql"
 
 //go:generate counterfeiter . TeamDBFactory
-
 type TeamDBFactory interface {
 	GetTeamDBById(int) TeamDB
-	GetTeamDBByName(string) (TeamDB, error)
+	GetTeamDBByName(string) (TeamDB, bool, error)
 }
 
 type teamDBFactory struct {
@@ -34,10 +30,8 @@ func (f *teamDBFactory) GetTeamDBById(teamId int) TeamDB {
 	}
 }
 
-func (f *teamDBFactory) GetTeamDBByName(teamName string) (TeamDB, error) {
+func (f *teamDBFactory) GetTeamDBByName(teamName string) (TeamDB, bool, error) {
 	var id int
-	var team TeamDB
-
 	row := f.conn.QueryRow(`
 	SELECT id FROM teams WHERE LOWER(name) = LOWER($1)
 `, teamName)
@@ -45,11 +39,14 @@ func (f *teamDBFactory) GetTeamDBByName(teamName string) (TeamDB, error) {
 	err := row.Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return team, errors.New("This team does not exist in db")
+			return nil, false, nil
 		}
-		return team, err
+		return nil, false, err
 	}
 
-	team = f.GetTeamDBById(id)
-	return team, nil
+	return &teamDB{
+		teamId:       id,
+		conn:         f.conn,
+		buildFactory: newBuildFactory(f.conn, f.bus, f.lockFactory),
+	}, true, nil
 }

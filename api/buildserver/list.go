@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/api/present"
 	"github.com/concourse/atc/auth"
@@ -42,12 +44,19 @@ func (s *Server) ListBuilds(w http.ResponseWriter, r *http.Request) {
 
 	authTeam, authTeamFound := auth.GetTeam(r)
 	if authTeamFound {
-		teamDB, err = s.teamDBFactory.GetTeamDBByName(authTeam.Name())
+		var found bool
+		teamDB, found, err = s.teamDBFactory.GetTeamDBByName(authTeam.Name())
 		if err != nil {
 			logger.Error("failed-to-get-team", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		if !found {
+			logger.Debug("team-not-found", lager.Data{"team-name": authTeam.Name()})
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
 		builds, pagination, err = teamDB.GetPrivateAndPublicBuilds(page)
 	} else {
 		builds, pagination, err = s.buildsDB.GetPublicBuilds(page)

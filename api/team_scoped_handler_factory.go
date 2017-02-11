@@ -36,10 +36,15 @@ func (f *TeamScopedHandlerFactory) HandlerFor(teamScopedHandler func(db.TeamDB) 
 			return
 		}
 
-		teamDB, err := f.teamDBFactory.GetTeamDBByName(authTeam.Name())
+		teamDB, found, err := f.teamDBFactory.GetTeamDBByName(authTeam.Name())
 		if err != nil {
 			logger.Error("failed-to-get-team", err)
 			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if !found {
+			logger.Debug("team-not-found", lager.Data{"team-name": authTeam.Name()})
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 

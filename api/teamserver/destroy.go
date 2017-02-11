@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/concourse/atc/auth"
 )
 
@@ -19,10 +21,15 @@ func (s *Server) DestroyTeam(w http.ResponseWriter, r *http.Request) {
 	}
 
 	teamName := r.FormValue(":team_name")
-	teamDB, err := s.teamDBFactory.GetTeamDBByName(teamName)
+	teamDB, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 	if err != nil {
 		hLog.Error("failed-to-get-team", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		hLog.Debug("team-not-found", lager.Data{"team-name": teamName})
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -38,9 +45,8 @@ func (s *Server) DestroyTeam(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
 	if !found {
-		hLog.Info("team-not-found")
+		hLog.Debug("team-not-found", lager.Data{"team-name": teamName})
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

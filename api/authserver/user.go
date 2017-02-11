@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/api/present"
 	"github.com/concourse/atc/auth"
@@ -25,26 +27,31 @@ func (s *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		teamDB, err := s.teamDBFactory.GetTeamDBByName(authTeam.Name())
+		teamDB, found, err := s.teamDBFactory.GetTeamDBByName(authTeam.Name())
 		if err != nil {
 			hLog.Error("failed-to-get-team-from-db", errors.New("failed-to-get-team-from-db"))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		savedTeam, found, err := teamDB.GetTeam()
-		if err != nil {
-			hLog.Error("failed-to-get-team-from-db", errors.New("failed-to-get-team-from-db"))
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		if found {
+			savedTeam, found, err := teamDB.GetTeam()
+			if err != nil {
+				hLog.Error("failed-to-get-team-from-db", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !found {
+				hLog.Error("failed-to-get-team-from-db", errors.New("failed-to-get-team-from-db"))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 
-		if !found {
-			hLog.Error("team-not-found-in-db", errors.New("team-not-found-in-db"))
-		} else {
 			presentedTeam := present.Team(savedTeam)
 			user = User{
 				Team: &presentedTeam,
 			}
+		} else {
+			hLog.Error("team-not-found-in-db", errors.New("team-not-found-in-db"), lager.Data{"team-name": authTeam.Name()})
 		}
 	}
 

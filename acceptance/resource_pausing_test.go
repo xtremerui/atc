@@ -64,7 +64,7 @@ var _ = Describe("Resource Pausing", func() {
 		lockFactory := db.NewLockFactory(retryableConn)
 		sqlDB = db.NewSQL(dbConn, bus, lockFactory)
 		teamDBFactory := db.NewTeamDBFactory(dbConn, bus, lockFactory)
-		teamDB, err := teamDBFactory.GetTeamDBByName(atc.DefaultTeamName)
+		teamDB, _, err := teamDBFactory.GetTeamDBByName(atc.DefaultTeamName)
 		Expect(err).NotTo(HaveOccurred())
 
 		savedPipeline, found, err := teamDB.GetPipelineByName("some-pipeline")

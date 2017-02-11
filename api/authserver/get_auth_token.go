@@ -18,12 +18,20 @@ func (s *Server) GetAuthToken(w http.ResponseWriter, r *http.Request) {
 
 	var token atc.AuthToken
 	teamName := r.FormValue(":team_name")
-	teamDB, err := s.teamDBFactory.GetTeamDBByName(teamName)
+	teamDB, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 	if err != nil {
 		logger.Error("get-team-by-name", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	if !found {
+		logger.Info("cannot-find-team-by-name", lager.Data{
+			"teamName": teamName,
+		})
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	team, found, err := teamDB.GetTeam()
 	if err != nil {
 		logger.Error("get-team-by-name", err)

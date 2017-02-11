@@ -24,15 +24,9 @@ func (s *Server) SetTeam(w http.ResponseWriter, r *http.Request) {
 	}
 
 	teamName := r.FormValue(":team_name")
-	teamDB, err := s.teamDBFactory.GetTeamDBByName(teamName)
-	if err != nil {
-		hLog.Error("failed-to-get-team", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 
 	var team db.Team
-	err = json.NewDecoder(r.Body).Decode(&team)
+	err := json.NewDecoder(r.Body).Decode(&team)
 	if err != nil {
 		hLog.Error("malformed-request", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -51,18 +45,32 @@ func (s *Server) SetTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	savedTeam, found, err := teamDB.GetTeam()
+	teamDB, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 	if err != nil {
 		hLog.Error("failed-to-get-team", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	var savedTeam db.SavedTeam
+
 	if found {
 		hLog.Debug("updating credentials")
 		err = s.updateCredentials(team, teamDB)
 		if err != nil {
 			hLog.Error("failed-to-update-team", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		savedTeam, found, err = teamDB.GetTeam()
+		if err != nil {
+			hLog.Error("failed-to-get-team", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if !found {
+			hLog.Error("failed-to-get-team", errors.New("team-not-found"))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

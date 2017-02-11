@@ -18,10 +18,15 @@ func (s *Server) OrderPipelines(w http.ResponseWriter, r *http.Request) {
 	}
 
 	teamName := r.FormValue(":team_name")
-	teamDB, err := s.teamDBFactory.GetTeamDBByName(teamName)
+	teamDB, found, err := s.teamDBFactory.GetTeamDBByName(teamName)
 	if err != nil {
 		s.logger.Error("failed-to-get-team", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		s.logger.Debug("team-not-found", lager.Data{"team-name": teamName})
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
