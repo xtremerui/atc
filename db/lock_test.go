@@ -749,6 +749,8 @@ var _ = Describe("Locks", func() {
 
 		BeforeEach(func() {
 			var err error
+			teamDB, err = teamDBFactory.GetTeamDBByName("some-team")
+			Expect(err).NotTo(HaveOccurred())
 			build, err = teamDB.CreateOneOffBuild()
 			Expect(err).NotTo(HaveOccurred())
 		})
