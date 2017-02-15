@@ -105,22 +105,36 @@ var _ = Describe("Pool", func() {
 				workerA *workerfakes.FakeWorker
 				workerB *workerfakes.FakeWorker
 				workerC *workerfakes.FakeWorker
+				workerD *workerfakes.FakeWorker
 			)
 
 			BeforeEach(func() {
 				workerA = new(workerfakes.FakeWorker)
 				workerB = new(workerfakes.FakeWorker)
 				workerC = new(workerfakes.FakeWorker)
+				workerD = new(workerfakes.FakeWorker)
 
 				workerA.SatisfyingReturns(workerA, nil)
-				workerB.SatisfyingReturns(workerB, nil)
-				workerC.SatisfyingReturns(nil, errors.New("nope"))
+				workerA.IsVersionCompatibleReturns(true)
 
-				fakeProvider.RunningWorkersReturns([]Worker{workerA, workerB, workerC}, nil)
+				workerB.SatisfyingReturns(workerB, nil)
+				workerB.IsVersionCompatibleReturns(true)
+
+				workerC.SatisfyingReturns(nil, errors.New("nope"))
+				workerC.IsVersionCompatibleReturns(true)
+
+				workerD.SatisfyingReturns(workerD, nil)
+				workerD.IsVersionCompatibleReturns(false)
+
+				fakeProvider.RunningWorkersReturns([]Worker{workerA, workerB, workerC, workerD}, nil)
 			})
 
 			It("succeeds", func() {
 				Expect(satisfyingErr).NotTo(HaveOccurred())
+			})
+
+			It("does not check worker satisfies the given spec if it is not version compatible", func() {
+				Expect(workerD.SatisfyingCallCount()).To(Equal(0))
 			})
 
 			It("checks that the workers satisfy the given spec", func() {
@@ -161,7 +175,7 @@ var _ = Describe("Pool", func() {
 				It("returns a NoCompatibleWorkersError", func() {
 					Expect(satisfyingErr).To(Equal(NoCompatibleWorkersError{
 						Spec:    spec,
-						Workers: []Worker{workerA, workerB, workerC},
+						Workers: []Worker{workerA, workerB, workerC, workerD},
 					}))
 				})
 			})
@@ -222,18 +236,27 @@ var _ = Describe("Pool", func() {
 				workerA *workerfakes.FakeWorker
 				workerB *workerfakes.FakeWorker
 				workerC *workerfakes.FakeWorker
+				workerD *workerfakes.FakeWorker
 			)
 
 			BeforeEach(func() {
 				workerA = new(workerfakes.FakeWorker)
 				workerB = new(workerfakes.FakeWorker)
 				workerC = new(workerfakes.FakeWorker)
+				workerD = new(workerfakes.FakeWorker)
 
 				workerA.SatisfyingReturns(workerA, nil)
-				workerB.SatisfyingReturns(workerB, nil)
-				workerC.SatisfyingReturns(nil, errors.New("nope"))
+				workerA.IsVersionCompatibleReturns(true)
 
-				fakeProvider.RunningWorkersReturns([]Worker{workerA, workerB, workerC}, nil)
+				workerB.SatisfyingReturns(workerB, nil)
+				workerB.IsVersionCompatibleReturns(true)
+
+				workerC.SatisfyingReturns(nil, errors.New("nope"))
+				workerC.IsVersionCompatibleReturns(true)
+
+				workerD.IsVersionCompatibleReturns(false)
+
+				fakeProvider.RunningWorkersReturns([]Worker{workerA, workerB, workerC, workerD}, nil)
 			})
 
 			It("succeeds", func() {
@@ -257,6 +280,10 @@ var _ = Describe("Pool", func() {
 				Expect(actualResourceTypes).To(Equal(resourceTypes))
 			})
 
+			It("does not check worker satisfies the given spec if it is not version compatible", func() {
+				Expect(workerD.SatisfyingCallCount()).To(Equal(0))
+			})
+
 			It("returns all workers satisfying the spec in a random order", func() {
 				firstCount := map[Worker]int{workerA: 0, workerB: 0}
 				for i := 0; i < 100; i++ {
@@ -273,12 +300,13 @@ var _ = Describe("Pool", func() {
 					workerA.SatisfyingReturns(nil, errors.New("nope"))
 					workerB.SatisfyingReturns(nil, errors.New("nope"))
 					workerC.SatisfyingReturns(nil, errors.New("nope"))
+					workerD.IsVersionCompatibleReturns(false)
 				})
 
 				It("returns a NoCompatibleWorkersError", func() {
 					Expect(satisfyingErr).To(Equal(NoCompatibleWorkersError{
 						Spec:    spec,
-						Workers: []Worker{workerA, workerB, workerC},
+						Workers: []Worker{workerA, workerB, workerC, workerD},
 					}))
 				})
 			})
@@ -289,6 +317,7 @@ var _ = Describe("Pool", func() {
 				teamWorker1   *workerfakes.FakeWorker
 				teamWorker2   *workerfakes.FakeWorker
 				teamWorker3   *workerfakes.FakeWorker
+				teamWorker4   *workerfakes.FakeWorker
 				generalWorker *workerfakes.FakeWorker
 			)
 
@@ -296,15 +325,21 @@ var _ = Describe("Pool", func() {
 				teamWorker1 = new(workerfakes.FakeWorker)
 				teamWorker1.SatisfyingReturns(teamWorker1, nil)
 				teamWorker1.IsOwnedByTeamReturns(true)
+				teamWorker1.IsVersionCompatibleReturns(true)
 				teamWorker2 = new(workerfakes.FakeWorker)
 				teamWorker2.SatisfyingReturns(teamWorker2, nil)
 				teamWorker2.IsOwnedByTeamReturns(true)
+				teamWorker2.IsVersionCompatibleReturns(true)
 				teamWorker3 = new(workerfakes.FakeWorker)
+				teamWorker3.IsVersionCompatibleReturns(true)
 				teamWorker3.SatisfyingReturns(nil, errors.New("nope"))
+				teamWorker4 = new(workerfakes.FakeWorker)
+				teamWorker4.IsVersionCompatibleReturns(false)
 				generalWorker = new(workerfakes.FakeWorker)
 				generalWorker.SatisfyingReturns(generalWorker, nil)
+				generalWorker.IsVersionCompatibleReturns(true)
 				generalWorker.IsOwnedByTeamReturns(false)
-				fakeProvider.RunningWorkersReturns([]Worker{generalWorker, teamWorker1, teamWorker2, teamWorker3}, nil)
+				fakeProvider.RunningWorkersReturns([]Worker{generalWorker, teamWorker1, teamWorker2, teamWorker3, teamWorker4}, nil)
 			})
 
 			It("returns only the team workers that satisfy the spec", func() {
@@ -323,10 +358,13 @@ var _ = Describe("Pool", func() {
 			BeforeEach(func() {
 				teamWorker = new(workerfakes.FakeWorker)
 				teamWorker.SatisfyingReturns(nil, errors.New("nope"))
+				teamWorker.IsVersionCompatibleReturns(true)
 				generalWorker1 = new(workerfakes.FakeWorker)
 				generalWorker1.SatisfyingReturns(generalWorker1, nil)
+				generalWorker1.IsVersionCompatibleReturns(true)
 				generalWorker1.IsOwnedByTeamReturns(false)
 				generalWorker2 = new(workerfakes.FakeWorker)
+				generalWorker2.IsVersionCompatibleReturns(true)
 				generalWorker2.SatisfyingReturns(nil, errors.New("nope"))
 				fakeProvider.RunningWorkersReturns([]Worker{generalWorker1, generalWorker2, teamWorker}, nil)
 			})
@@ -431,6 +469,10 @@ var _ = Describe("Pool", func() {
 				workerA.SatisfyingReturns(workerA, nil)
 				workerB.SatisfyingReturns(workerB, nil)
 				workerC.SatisfyingReturns(nil, errors.New("nope"))
+
+				workerA.IsVersionCompatibleReturns(true)
+				workerB.IsVersionCompatibleReturns(true)
+				workerC.IsVersionCompatibleReturns(true)
 
 				fakeContainer = new(workerfakes.FakeContainer)
 				workerA.FindOrCreateBuildContainerReturns(fakeContainer, nil)

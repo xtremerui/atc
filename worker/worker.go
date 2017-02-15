@@ -14,6 +14,7 @@ import (
 	"github.com/concourse/atc/db"
 	"github.com/concourse/atc/db/lock"
 	"github.com/concourse/atc/dbng"
+	"github.com/concourse/baggageclaim"
 )
 
 var ErrUnsupportedResourceType = errors.New("unsupported resource type")
@@ -52,6 +53,7 @@ type Worker interface {
 	Tags() atc.Tags
 	Uptime() time.Duration
 	IsOwnedByTeam() bool
+	IsVersionCompatible() bool
 }
 
 //go:generate counterfeiter . GardenWorkerDB
@@ -77,14 +79,15 @@ type gardenWorker struct {
 
 	clock clock.Clock
 
-	activeContainers int
-	resourceTypes    []atc.WorkerResourceType
-	platform         string
-	tags             atc.Tags
-	teamID           int
-	name             string
-	addr             string
-	startTime        int64
+	activeContainers            int
+	resourceTypes               []atc.WorkerResourceType
+	platform                    string
+	tags                        atc.Tags
+	teamID                      int
+	name                        string
+	addr                        string
+	baggageclaimProtocolVersion int
+	startTime                   int64
 }
 
 func NewGardenWorker(
@@ -101,6 +104,7 @@ func NewGardenWorker(
 	teamID int,
 	name string,
 	addr string,
+	baggageclaimProtocolVersion int,
 	startTime int64,
 ) Worker {
 	return &gardenWorker{
@@ -119,7 +123,8 @@ func NewGardenWorker(
 		teamID:            teamID,
 		name:              name,
 		addr:              addr,
-		startTime:         startTime,
+		baggageclaimProtocolVersion: baggageclaimProtocolVersion,
+		startTime:                   startTime,
 	}
 }
 
@@ -456,6 +461,10 @@ func (worker *gardenWorker) Tags() atc.Tags {
 
 func (worker *gardenWorker) IsOwnedByTeam() bool {
 	return worker.teamID != 0
+}
+
+func (worker *gardenWorker) IsVersionCompatible() bool {
+	return worker.baggageclaimProtocolVersion == baggageclaim.ProtocolVersion
 }
 
 func (worker *gardenWorker) Uptime() time.Duration {

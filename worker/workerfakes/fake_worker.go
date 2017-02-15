@@ -258,6 +258,12 @@ type FakeWorker struct {
 	isOwnedByTeamReturns     struct {
 		result1 bool
 	}
+	IsVersionCompatibleStub        func() bool
+	isVersionCompatibleMutex       sync.RWMutex
+	isVersionCompatibleArgsForCall []struct{}
+	isVersionCompatibleReturns     struct {
+		result1 bool
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -1052,6 +1058,31 @@ func (fake *FakeWorker) IsOwnedByTeamReturns(result1 bool) {
 	}{result1}
 }
 
+func (fake *FakeWorker) IsVersionCompatible() bool {
+	fake.isVersionCompatibleMutex.Lock()
+	fake.isVersionCompatibleArgsForCall = append(fake.isVersionCompatibleArgsForCall, struct{}{})
+	fake.recordInvocation("IsVersionCompatible", []interface{}{})
+	fake.isVersionCompatibleMutex.Unlock()
+	if fake.IsVersionCompatibleStub != nil {
+		return fake.IsVersionCompatibleStub()
+	} else {
+		return fake.isVersionCompatibleReturns.result1
+	}
+}
+
+func (fake *FakeWorker) IsVersionCompatibleCallCount() int {
+	fake.isVersionCompatibleMutex.RLock()
+	defer fake.isVersionCompatibleMutex.RUnlock()
+	return len(fake.isVersionCompatibleArgsForCall)
+}
+
+func (fake *FakeWorker) IsVersionCompatibleReturns(result1 bool) {
+	fake.IsVersionCompatibleStub = nil
+	fake.isVersionCompatibleReturns = struct {
+		result1 bool
+	}{result1}
+}
+
 func (fake *FakeWorker) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -1103,6 +1134,8 @@ func (fake *FakeWorker) Invocations() map[string][][]interface{} {
 	defer fake.uptimeMutex.RUnlock()
 	fake.isOwnedByTeamMutex.RLock()
 	defer fake.isOwnedByTeamMutex.RUnlock()
+	fake.isVersionCompatibleMutex.RLock()
+	defer fake.isVersionCompatibleMutex.RUnlock()
 	return fake.invocations
 }
 

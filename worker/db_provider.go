@@ -200,6 +200,7 @@ func (provider *dbProvider) newGardenWorker(tikTok clock.Clock, savedWorker *dbn
 		savedWorker.TeamID,
 		savedWorker.Name,
 		*savedWorker.GardenAddr,
+		savedWorker.BaggageclaimProtocolVersion,
 		savedWorker.StartTime,
 	)
 }

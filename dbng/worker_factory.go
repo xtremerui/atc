@@ -52,6 +52,7 @@ func (f *workerFactory) GetWorker(name string) (*Worker, bool, error) {
 		w.addr,
 		w.state,
 		w.baggageclaim_url,
+		w.baggageclaim_protocol_version,
 		w.http_proxy_url,
 		w.https_proxy_url,
 		w.no_proxy,
@@ -91,6 +92,7 @@ var workersQuery = psql.Select(`
 		w.addr,
 		w.state,
 		w.baggageclaim_url,
+		w.baggageclaim_protocol_version,
 		w.http_proxy_url,
 		w.https_proxy_url,
 		w.no_proxy,
@@ -151,13 +153,14 @@ func (f *workerFactory) getWorkers(teamName *string) ([]*Worker, error) {
 
 func scanWorker(row scannable) (*Worker, error) {
 	var (
-		name          string
-		addStr        sql.NullString
-		state         string
-		bcURLStr      sql.NullString
-		httpProxyURL  sql.NullString
-		httpsProxyURL sql.NullString
-		noProxy       sql.NullString
+		name              string
+		addStr            sql.NullString
+		state             string
+		bcURLStr          sql.NullString
+		bcProtocolVersion int
+		httpProxyURL      sql.NullString
+		httpsProxyURL     sql.NullString
+		noProxy           sql.NullString
 
 		activeContainers int
 		resourceTypes    []byte
@@ -175,6 +178,7 @@ func scanWorker(row scannable) (*Worker, error) {
 		&addStr,
 		&state,
 		&bcURLStr,
+		&bcProtocolVersion,
 		&httpProxyURL,
 		&httpsProxyURL,
 		&noProxy,
@@ -192,10 +196,11 @@ func scanWorker(row scannable) (*Worker, error) {
 	}
 
 	worker := Worker{
-		Name:             name,
-		State:            WorkerState(state),
-		ActiveContainers: activeContainers,
-		StartTime:        startTime,
+		Name:                        name,
+		State:                       WorkerState(state),
+		ActiveContainers:            activeContainers,
+		StartTime:                   startTime,
+		BaggageclaimProtocolVersion: bcProtocolVersion,
 	}
 
 	if addStr.Valid {

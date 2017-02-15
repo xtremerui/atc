@@ -97,6 +97,10 @@ func (pool *pool) AllSatisfying(spec WorkerSpec, resourceTypes atc.ResourceTypes
 	compatibleTeamWorkers := []Worker{}
 	compatibleGeneralWorkers := []Worker{}
 	for _, worker := range workers {
+		if !worker.IsVersionCompatible() {
+			continue
+		}
+
 		satisfyingWorker, err := worker.Satisfying(spec, resourceTypes)
 		if err == nil {
 			if worker.IsOwnedByTeam() {

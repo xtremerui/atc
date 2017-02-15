@@ -89,6 +89,7 @@ var _ = Describe("Worker", func() {
 			teamID,
 			workerName,
 			"1.2.3.4",
+			0,
 			workerStartTime,
 		)
 
