@@ -123,6 +123,26 @@ var _ = Describe("WorkerFactory", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(count).To(Equal(2))
 			})
+
+			Context("when worker baggageclaim protocol version is provided", func() {
+				BeforeEach(func() {
+					atcWorker.BaggageclaimProtocolVersion = 5
+				})
+
+				It("saves it", func() {
+					savedWorker, err := workerFactory.SaveWorker(atcWorker, 5*time.Minute)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(savedWorker.BaggageclaimProtocolVersion).To(Equal(5))
+				})
+			})
+
+			Context("when worker baggageclaim protocol version is not provided", func() {
+				It("saves it as 0", func() {
+					savedWorker, err := workerFactory.SaveWorker(atcWorker, 5*time.Minute)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(savedWorker.BaggageclaimProtocolVersion).To(Equal(0))
+				})
+			})
 		})
 	})
 

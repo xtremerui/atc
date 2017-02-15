@@ -27,10 +27,12 @@ type Worker struct {
 	GardenAddr *string
 	State      WorkerState
 
-	BaggageclaimURL *string
-	HTTPProxyURL    string
-	HTTPSProxyURL   string
-	NoProxy         string
+	BaggageclaimURL             *string
+	BaggageclaimProtocolVersion int
+
+	HTTPProxyURL  string
+	HTTPSProxyURL string
+	NoProxy       string
 
 	ActiveContainers int
 	ResourceTypes    []atc.WorkerResourceType

@@ -808,6 +808,7 @@ func saveWorker(tx Tx, worker atc.Worker, teamID *int, ttl time.Duration) (*Work
 					"tags",
 					"platform",
 					"baggageclaim_url",
+					"baggageclaim_protocol_version",
 					"http_proxy_url",
 					"https_proxy_url",
 					"no_proxy",
@@ -824,6 +825,7 @@ func saveWorker(tx Tx, worker atc.Worker, teamID *int, ttl time.Duration) (*Work
 					tags,
 					worker.Platform,
 					worker.BaggageclaimURL,
+					worker.BaggageclaimProtocolVersion,
 					worker.HTTPProxyURL,
 					worker.HTTPSProxyURL,
 					worker.NoProxy,
@@ -855,6 +857,7 @@ func saveWorker(tx Tx, worker atc.Worker, teamID *int, ttl time.Duration) (*Work
 			Set("tags", tags).
 			Set("platform", worker.Platform).
 			Set("baggageclaim_url", worker.BaggageclaimURL).
+			Set("baggageclaim_protocol_version", worker.BaggageclaimProtocolVersion).
 			Set("http_proxy_url", worker.HTTPProxyURL).
 			Set("https_proxy_url", worker.HTTPSProxyURL).
 			Set("no_proxy", worker.NoProxy).
@@ -872,9 +875,11 @@ func saveWorker(tx Tx, worker atc.Worker, teamID *int, ttl time.Duration) (*Work
 	}
 
 	savedWorker := &Worker{
-		Name:       worker.Name,
-		GardenAddr: &worker.GardenAddr,
-		State:      workerState,
+		Name:                        worker.Name,
+		GardenAddr:                  &worker.GardenAddr,
+		State:                       workerState,
+		BaggageclaimURL:             &worker.BaggageclaimURL,
+		BaggageclaimProtocolVersion: worker.BaggageclaimProtocolVersion,
 	}
 
 	workerBaseResourceTypeIDs := []int{}

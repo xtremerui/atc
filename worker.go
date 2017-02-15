@@ -2,8 +2,10 @@ package atc
 
 type Worker struct {
 	// not garden_addr, for backwards-compatibility
-	GardenAddr      string `json:"addr"`
-	BaggageclaimURL string `json:"baggageclaim_url"`
+	GardenAddr string `json:"addr"`
+
+	BaggageclaimURL             string `json:"baggageclaim_url"`
+	BaggageclaimProtocolVersion int    `json:"baggageclaim_protocol_version"`
 
 	HTTPProxyURL  string `json:"http_proxy_url,omitempty"`
 	HTTPSProxyURL string `json:"https_proxy_url,omitempty"`
