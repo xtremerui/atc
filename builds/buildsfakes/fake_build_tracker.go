@@ -8,11 +8,14 @@ import (
 )
 
 type FakeBuildTracker struct {
-	TrackStub        func()
-	trackMutex       sync.RWMutex
-	trackArgsForCall []struct{}
-	invocations      map[string][][]interface{}
-	invocationsMutex sync.RWMutex
+	TrackStub          func()
+	trackMutex         sync.RWMutex
+	trackArgsForCall   []struct{}
+	ReleaseStub        func()
+	ReleaseMutex       sync.RWMutex
+	ReleaseArgsForCall []struct{}
+	invocations        map[string][][]interface{}
+	invocationsMutex   sync.RWMutex
 }
 
 func (fake *FakeBuildTracker) Track() {
@@ -31,11 +34,29 @@ func (fake *FakeBuildTracker) TrackCallCount() int {
 	return len(fake.trackArgsForCall)
 }
 
+func (fake *FakeBuildTracker) Release() {
+	fake.ReleaseMutex.Lock()
+	fake.ReleaseArgsForCall = append(fake.ReleaseArgsForCall, struct{}{})
+	fake.recordInvocation("Release", []interface{}{})
+	fake.ReleaseMutex.Unlock()
+	if fake.ReleaseStub != nil {
+		fake.ReleaseStub()
+	}
+}
+
+func (fake *FakeBuildTracker) ReleaseCallCount() int {
+	fake.ReleaseMutex.RLock()
+	defer fake.ReleaseMutex.RUnlock()
+	return len(fake.ReleaseArgsForCall)
+}
+
 func (fake *FakeBuildTracker) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.trackMutex.RLock()
 	defer fake.trackMutex.RUnlock()
+	fake.ReleaseMutex.RLock()
+	defer fake.ReleaseMutex.RUnlock()
 	return fake.invocations
 }
 

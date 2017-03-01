@@ -42,6 +42,10 @@ func (execV1DummyBuild) PublicPlan(lager.Logger) (atc.PublicBuildPlan, error) {
 	}, nil
 }
 
+func (execV1DummyBuild) Release(lager.Logger) error {
+	return nil
+}
+
 func (execV1DummyBuild) Abort(lager.Logger) error {
 	return nil
 }

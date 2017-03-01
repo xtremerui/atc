@@ -24,6 +24,7 @@ type Build interface {
 
 	Abort(lager.Logger) error
 	Resume(lager.Logger)
+	Release(lager.Logger) error
 }
 
 type Engines []Engine

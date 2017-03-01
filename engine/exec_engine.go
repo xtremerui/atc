@@ -185,6 +185,10 @@ func (build *execBuild) Abort(lager.Logger) error {
 	return nil
 }
 
+func (build *execBuild) Release(lager.Logger) error {
+	return nil
+}
+
 func (build *execBuild) Resume(logger lager.Logger) {
 	stepFactory := build.buildStepFactory(logger, build.metadata.Plan)
 	source := stepFactory.Using(&exec.NoopStep{}, worker.NewArtifactRepository())

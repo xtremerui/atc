@@ -53,21 +53,25 @@ func (engine *dbEngine) CreateBuild(logger lager.Logger, build db.Build, plan at
 	}
 
 	return &dbBuild{
-		engines: engine.engines,
-		build:   build,
+		engines:   engine.engines,
+		build:     build,
+		releaseCh: make(chan struct{}),
 	}, nil
 }
 
 func (engine *dbEngine) LookupBuild(logger lager.Logger, build db.Build) (Build, error) {
 	return &dbBuild{
-		engines: engine.engines,
-		build:   build,
+		engines:   engine.engines,
+		build:     build,
+		releaseCh: make(chan struct{}),
 	}, nil
 }
 
 type dbBuild struct {
 	engines Engines
 	build   db.Build
+
+	releaseCh chan struct{}
 }
 
 func (build *dbBuild) Metadata() string {
@@ -88,6 +92,27 @@ func (build *dbBuild) PublicPlan(logger lager.Logger) (atc.PublicBuildPlan, erro
 	}
 
 	return engineBuild.PublicPlan(logger)
+}
+
+func (build *dbBuild) Release(logger lager.Logger) error {
+	// the order below is very important to avoid races with build creation.
+
+	lock, acquired, err := build.build.AcquireTrackingLock(logger, trackLockDuration)
+	if err != nil {
+		logger.Error("failed-to-get-lock", err)
+		return err
+	}
+
+	if !acquired {
+		// someone else is tracking the build; no need to release tracking
+		return nil
+	}
+
+	defer lock.Release()
+
+	close(build.releaseCh)
+
+	return nil
 }
 
 func (build *dbBuild) Abort(logger lager.Logger) error {
@@ -234,6 +259,7 @@ func (build *dbBuild) Resume(logger lager.Logger) {
 				logger.Error("failed-to-abort", err)
 			}
 		case <-done:
+		case <-build.releaseCh:
 		}
 	}()
 
