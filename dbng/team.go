@@ -170,7 +170,7 @@ func (t *team) FindResourceGetContainer(
 ) (CreatingContainer, CreatedContainer, error) {
 	return t.findContainer(sq.And{
 		sq.Eq{"worker_name": workerName},
-		sq.Eq{"resource_cache_id": resourceCache.ID},
+		sq.Eq{"worker_resource_cache_id": resourceCache.ID},
 		sq.Eq{"step_name": stepName},
 	})
 }
@@ -196,7 +196,7 @@ func (t *team) CreateResourceGetContainer(
 	err = psql.Insert("containers").
 		Columns(
 			"worker_name",
-			"resource_cache_id",
+			"worker_resource_cache_id",
 			"type",
 			"step_name",
 			"handle",
