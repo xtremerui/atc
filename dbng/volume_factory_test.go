@@ -464,10 +464,8 @@ var _ = Describe("VolumeFactory", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			baseResourceType = dbng.BaseResourceType{
-				Name: "some-base-type",
+				Name: "some-base-resource-type",
 			}
-			_, err = baseResourceType.FindOrCreate(setupTx)
-			Expect(err).NotTo(HaveOccurred())
 
 			cache := dbng.ResourceCache{
 				ResourceConfig: dbng.ResourceConfig{

@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/concourse/atc/dbng/migration"
@@ -16,7 +17,7 @@ func AddWorkerResourceCacheToVolumes(tx migration.LimitedTx) error {
 		return err
 	}
 
-	rows, err := tx.Query(`SELECT id, resource_cache_id, worker_base_resource_type_id FROM volumes WHERE resource_cache_id IS NOT NULL`)
+	rows, err := tx.Query(`SELECT id, resource_cache_id, worker_name FROM volumes WHERE resource_cache_id IS NOT NULL`)
 	if err != nil {
 		return err
 	}
@@ -28,29 +29,58 @@ func AddWorkerResourceCacheToVolumes(tx migration.LimitedTx) error {
 	for rows.Next() {
 		var id int
 		var resourceCacheID int
-		var workerBaseResourceTypeID int
-		err = rows.Scan(&id, &resourceCacheID, &workerBaseResourceTypeID)
+		var workerName string
+		err = rows.Scan(&id, &resourceCacheID, &workerName)
 		if err != nil {
 			return fmt.Errorf("failed to scan volume id, resource_cache_id and worker_name: %s", err)
 		}
 
 		volumeWorkerResourceCaches = append(volumeWorkerResourceCaches, volumeWorkerResourceCache{
-			ID:                       id,
-			ResourceCacheID:          resourceCacheID,
-			WorkerBaseResourceTypeID: workerBaseResourceTypeID,
+			ID:              id,
+			ResourceCacheID: resourceCacheID,
+			WorkerName:      workerName,
 		})
 	}
 
 	for _, vwrc := range volumeWorkerResourceCaches {
+		baseResourceTypeID, err := findBaseResourceTypeID(tx, vwrc.ResourceCacheID)
+		if err != nil {
+			return err
+		}
+		if baseResourceTypeID == 0 {
+			// most likely resource cache was garbage collected
+			// keep worker_base_resource_type_id as null, so that gc can remove this container
+			continue
+		}
+
+		var workerBaseResourceTypeID int
+		err = tx.QueryRow(`
+		      SELECT id FROM worker_base_resource_types WHERE base_resource_type_id=$1 AND worker_name=$2
+		    `, baseResourceTypeID, vwrc.WorkerName).
+			Scan(&workerBaseResourceTypeID)
+		if err != nil {
+			return err
+		}
+
 		var workerResourceCacheID int
 		err = tx.QueryRow(`
+				SELECT id FROM worker_resource_caches WHERE worker_base_resource_type_id = $1 AND resource_cache_id = $2
+			`, workerBaseResourceTypeID, vwrc.ResourceCacheID).
+			Scan(&workerResourceCacheID)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return err
+			}
+
+			err = tx.QueryRow(`
 				INSERT INTO worker_resource_caches (worker_base_resource_type_id, resource_cache_id)
 		    VALUES ($1, $2)
 		    RETURNING id
-			`, vwrc.WorkerBaseResourceTypeID, vwrc.ResourceCacheID).
-			Scan(&workerResourceCacheID)
-		if err != nil {
-			return err
+			`, workerBaseResourceTypeID, vwrc.ResourceCacheID).
+				Scan(&workerResourceCacheID)
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Exec(`
@@ -62,9 +92,8 @@ func AddWorkerResourceCacheToVolumes(tx migration.LimitedTx) error {
 	}
 
 	_, err = tx.Exec(`
-      ALTER TABLE containers
+      ALTER TABLE volumes
       DROP COLUMN resource_cache_id
-      DROP COLUMN worker_base_resource_type_id
     `)
 	if err != nil {
 		return err
@@ -74,7 +103,7 @@ func AddWorkerResourceCacheToVolumes(tx migration.LimitedTx) error {
 }
 
 type volumeWorkerResourceCache struct {
-	ID                       int
-	ResourceCacheID          int
-	WorkerBaseResourceTypeID int
+	ID              int
+	ResourceCacheID int
+	WorkerName      string
 }

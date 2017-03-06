@@ -75,13 +75,23 @@ func AddWorkerResourceCacheToContainers(tx migration.LimitedTx) error {
 
 		var workerResourceCacheID int
 		err = tx.QueryRow(`
+				SELECT id FROM worker_resource_caches WHERE worker_base_resource_type_id = $1 AND resource_cache_id = $2
+			`, workerBaseResourceTypeID, cwrc.ResourceCacheID).
+			Scan(&workerResourceCacheID)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return err
+			}
+
+			err = tx.QueryRow(`
 				INSERT INTO worker_resource_caches (worker_base_resource_type_id, resource_cache_id)
 		    VALUES ($1, $2)
 		    RETURNING id
 			`, workerBaseResourceTypeID, cwrc.ResourceCacheID).
-			Scan(&workerResourceCacheID)
-		if err != nil {
-			return err
+				Scan(&workerResourceCacheID)
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Exec(`
