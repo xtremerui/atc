@@ -197,6 +197,14 @@ type FakeBuild struct {
 		result2 bool
 		result3 error
 	}
+	IsTrackedLocallyStub        func(logger lager.Logger) bool
+	isTrackedLocallyMutex       sync.RWMutex
+	isTrackedLocallyArgsForCall []struct {
+		logger lager.Logger
+	}
+	isTrackedLocallyReturns struct {
+		result1 bool
+	}
 	GetPreparationStub        func() (db.BuildPreparation, bool, error)
 	getPreparationMutex       sync.RWMutex
 	getPreparationArgsForCall []struct{}
@@ -974,6 +982,38 @@ func (fake *FakeBuild) AcquireTrackingLockReturns(result1 lock.Lock, result2 boo
 	}{result1, result2, result3}
 }
 
+func (fake *FakeBuild) IsTrackedLocally(logger lager.Logger) bool {
+	fake.isTrackedLocallyMutex.Lock()
+	fake.isTrackedLocallyArgsForCall = append(fake.isTrackedLocallyArgsForCall, struct {
+		logger lager.Logger
+	}{logger})
+	fake.recordInvocation("IsTrackedLocally", []interface{}{logger})
+	fake.isTrackedLocallyMutex.Unlock()
+	if fake.IsTrackedLocallyStub != nil {
+		return fake.IsTrackedLocallyStub(logger)
+	}
+	return fake.isTrackedLocallyReturns.result1
+}
+
+func (fake *FakeBuild) IsTrackedLocallyCallCount() int {
+	fake.isTrackedLocallyMutex.RLock()
+	defer fake.isTrackedLocallyMutex.RUnlock()
+	return len(fake.isTrackedLocallyArgsForCall)
+}
+
+func (fake *FakeBuild) IsTrackedLocallyArgsForCall(i int) lager.Logger {
+	fake.isTrackedLocallyMutex.RLock()
+	defer fake.isTrackedLocallyMutex.RUnlock()
+	return fake.isTrackedLocallyArgsForCall[i].logger
+}
+
+func (fake *FakeBuild) IsTrackedLocallyReturns(result1 bool) {
+	fake.IsTrackedLocallyStub = nil
+	fake.isTrackedLocallyReturns = struct {
+		result1 bool
+	}{result1}
+}
+
 func (fake *FakeBuild) GetPreparation() (db.BuildPreparation, bool, error) {
 	fake.getPreparationMutex.Lock()
 	fake.getPreparationArgsForCall = append(fake.getPreparationArgsForCall, struct{}{})
@@ -1265,6 +1305,8 @@ func (fake *FakeBuild) Invocations() map[string][][]interface{} {
 	defer fake.abortNotifierMutex.RUnlock()
 	fake.acquireTrackingLockMutex.RLock()
 	defer fake.acquireTrackingLockMutex.RUnlock()
+	fake.isTrackedLocallyMutex.RLock()
+	defer fake.isTrackedLocallyMutex.RUnlock()
 	fake.getPreparationMutex.RLock()
 	defer fake.getPreparationMutex.RUnlock()
 	fake.saveEngineMetadataMutex.RLock()

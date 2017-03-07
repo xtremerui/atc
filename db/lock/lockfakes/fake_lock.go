@@ -15,6 +15,12 @@ type FakeLock struct {
 		result1 bool
 		result2 error
 	}
+	IsHeldLocallyStub        func() bool
+	isHeldLocallyMutex       sync.RWMutex
+	isHeldLocallyArgsForCall []struct{}
+	isHeldLocallyReturns     struct {
+		result1 bool
+	}
 	ReleaseStub        func() error
 	releaseMutex       sync.RWMutex
 	releaseArgsForCall []struct{}
@@ -50,6 +56,30 @@ func (fake *FakeLock) AcquireReturns(result1 bool, result2 error) {
 	}{result1, result2}
 }
 
+func (fake *FakeLock) IsHeldLocally() bool {
+	fake.isHeldLocallyMutex.Lock()
+	fake.isHeldLocallyArgsForCall = append(fake.isHeldLocallyArgsForCall, struct{}{})
+	fake.recordInvocation("IsHeldLocally", []interface{}{})
+	fake.isHeldLocallyMutex.Unlock()
+	if fake.IsHeldLocallyStub != nil {
+		return fake.IsHeldLocallyStub()
+	}
+	return fake.isHeldLocallyReturns.result1
+}
+
+func (fake *FakeLock) IsHeldLocallyCallCount() int {
+	fake.isHeldLocallyMutex.RLock()
+	defer fake.isHeldLocallyMutex.RUnlock()
+	return len(fake.isHeldLocallyArgsForCall)
+}
+
+func (fake *FakeLock) IsHeldLocallyReturns(result1 bool) {
+	fake.IsHeldLocallyStub = nil
+	fake.isHeldLocallyReturns = struct {
+		result1 bool
+	}{result1}
+}
+
 func (fake *FakeLock) Release() error {
 	fake.releaseMutex.Lock()
 	fake.releaseArgsForCall = append(fake.releaseArgsForCall, struct{}{})
@@ -79,6 +109,8 @@ func (fake *FakeLock) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.acquireMutex.RLock()
 	defer fake.acquireMutex.RUnlock()
+	fake.isHeldLocallyMutex.RLock()
+	defer fake.isHeldLocallyMutex.RUnlock()
 	fake.releaseMutex.RLock()
 	defer fake.releaseMutex.RUnlock()
 	return fake.invocations

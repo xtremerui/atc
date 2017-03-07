@@ -484,6 +484,44 @@ var _ = Describe("DBEngine", func() {
 							}
 						})
 
+						Context("when build is released", func() {
+							var released chan struct{}
+
+							BeforeEach(func() {
+								readyToRelease := make(chan struct{})
+								released = make(chan struct{})
+
+								go func() {
+									<-readyToRelease
+									err := build.Release(logger)
+									Expect(err).NotTo(HaveOccurred())
+
+									close(released)
+								}()
+
+								realBuild.ResumeStub = func(lager.Logger) {
+									close(readyToRelease)
+									<-released
+								}
+
+								aborts := make(chan struct{})
+								notifier := new(dbfakes.FakeNotifier)
+								notifier.NotifyReturns(aborts)
+
+								dbBuild.AbortNotifierReturns(notifier, nil)
+							})
+
+							Context("when lock is held locally", func() {
+								BeforeEach(func() {
+									dbBuild.IsTrackedLocallyReturns(true)
+								})
+
+								It("releases the lock", func() {
+									Expect(fakeLock.ReleaseCallCount()).To(Equal(1))
+								})
+							})
+						})
+
 						Context("when listening for aborts succeeds", func() {
 							var (
 								notifier *dbfakes.FakeNotifier

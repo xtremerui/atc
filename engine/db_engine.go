@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"code.cloudfoundry.org/lager"
@@ -16,6 +17,10 @@ const trackLockDuration = time.Minute
 func NewDBEngine(engines Engines) Engine {
 	return &dbEngine{
 		engines: engines,
+		releaseChRepo: releaseChRepo{
+			releaseChs: map[int]chan struct{}{},
+			mutex:      &sync.Mutex{},
+		},
 	}
 }
 
@@ -28,7 +33,8 @@ func (err UnknownEngineError) Error() string {
 }
 
 type dbEngine struct {
-	engines Engines
+	engines       Engines
+	releaseChRepo releaseChRepo
 }
 
 func (*dbEngine) Name() string {
@@ -52,26 +58,29 @@ func (engine *dbEngine) CreateBuild(logger lager.Logger, build db.Build, plan at
 		createdBuild.Abort(logger.Session("aborted-immediately"))
 	}
 
+	engine.releaseChRepo.Create(build.ID())
+
 	return &dbBuild{
-		engines:   engine.engines,
-		build:     build,
-		releaseCh: make(chan struct{}),
+		engines:       engine.engines,
+		releaseChRepo: engine.releaseChRepo,
+		build:         build,
 	}, nil
 }
 
 func (engine *dbEngine) LookupBuild(logger lager.Logger, build db.Build) (Build, error) {
+	engine.releaseChRepo.Create(build.ID())
+
 	return &dbBuild{
-		engines:   engine.engines,
-		build:     build,
-		releaseCh: make(chan struct{}),
+		engines:       engine.engines,
+		releaseChRepo: engine.releaseChRepo,
+		build:         build,
 	}, nil
 }
 
 type dbBuild struct {
-	engines Engines
-	build   db.Build
-
-	releaseCh chan struct{}
+	engines       Engines
+	releaseChRepo releaseChRepo
+	build         db.Build
 }
 
 func (build *dbBuild) Metadata() string {
@@ -100,10 +109,8 @@ func (build *dbBuild) Release(logger lager.Logger) error {
 	})
 
 	if build.build.IsTrackedLocally(logger) {
-		logger.Info("build-is-tracked-locally", lager.Data{
-			"build": build.build.Name(),
-		})
-		close(build.releaseCh)
+		releaseCh := build.releaseChRepo.Find(build.build.ID())
+		close(releaseCh)
 	}
 
 	return nil
@@ -243,6 +250,8 @@ func (build *dbBuild) Resume(logger lager.Logger) {
 	done := make(chan struct{})
 	defer close(done)
 
+	releaseCh := build.releaseChRepo.Find(build.build.ID())
+
 	go func() {
 		select {
 		case <-aborts.Notify():
@@ -252,7 +261,7 @@ func (build *dbBuild) Resume(logger lager.Logger) {
 			if err != nil {
 				logger.Error("failed-to-abort", err)
 			}
-		case <-build.releaseCh:
+		case <-releaseCh:
 			logger.Info("received-close-channel-message-stopping-tracking-build")
 		case <-done:
 		}
@@ -298,4 +307,23 @@ func (build *dbBuild) finishWithError(logger lager.Logger) {
 	if err != nil {
 		logger.Error("failed-to-mark-build-as-errored", err)
 	}
+}
+
+type releaseChRepo struct {
+	releaseChs map[int]chan struct{}
+	mutex      *sync.Mutex
+}
+
+func (rcr releaseChRepo) Create(buildID int) {
+	rcr.mutex.Lock()
+	defer rcr.mutex.Unlock()
+
+	rcr.releaseChs[buildID] = make(chan struct{})
+}
+
+func (rcr releaseChRepo) Find(buildID int) chan struct{} {
+	rcr.mutex.Lock()
+	defer rcr.mutex.Unlock()
+
+	return rcr.releaseChs[buildID]
 }

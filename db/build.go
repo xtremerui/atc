@@ -309,6 +309,19 @@ func (b *build) AbortNotifier() (Notifier, error) {
 	})
 }
 
+func (b *build) ReleaseNotifier() (Notifier, error) {
+	return newConditionNotifier(b.bus, buildReleaseChannel(b.id), func() (bool, error) {
+		var aborted bool
+		err := b.conn.QueryRow(`
+			SELECT status = 'aborted'
+			FROM builds
+			WHERE id = $1
+		`, b.id).Scan(&aborted)
+
+		return aborted, err
+	})
+}
+
 func (b *build) Finish(status Status) error {
 	tx, err := b.conn.Begin()
 	if err != nil {
@@ -981,6 +994,10 @@ func (b *build) saveEvent(tx Tx, event atc.Event) error {
 
 func buildAbortChannel(buildID int) string {
 	return fmt.Sprintf("build_abort_%d", buildID)
+}
+
+func buildReleaseChannel(buildID int) string {
+	return fmt.Sprintf("build_release_%d", buildID)
 }
 
 func buildEventsChannel(buildID int) string {
