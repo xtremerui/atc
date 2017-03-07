@@ -70,6 +70,9 @@ func (bt *Tracker) Release() {
 	rLog.Debug("start")
 	defer rLog.Debug("done")
 	builds, err := bt.trackerDB.GetAllStartedBuilds()
+	rLog.Info("found-x-started-builds", lager.Data{
+		"num-builds": len(builds),
+	})
 	if err != nil {
 		rLog.Error("failed-to-lookup-started-builds", err)
 	}
@@ -80,6 +83,8 @@ func (bt *Tracker) Release() {
 			"pipeline": build.PipelineName(),
 			"job":      build.JobName(),
 		})
+
+		brLog.Info("about-to-release-build")
 
 		engineBuild, err := bt.engine.LookupBuild(brLog, build)
 		if err != nil {

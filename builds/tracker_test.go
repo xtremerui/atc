@@ -95,4 +95,36 @@ var _ = Describe("Tracker", func() {
 		})
 	})
 
+	// Describe("Release", func() {
+	// 	var inFlightBuilds []*dbfakes.FakeBuild
+	// 	var engineBuilds []*enginefakes.FakeBuild
+	//
+	// 	BeforeEach(func() {
+	// 		inFlightBuilds = []*dbfakes.FakeBuild{
+	// 			new(dbfakes.FakeBuild),
+	// 			new(dbfakes.FakeBuild),
+	// 			new(dbfakes.FakeBuild),
+	// 		}
+	// 		returnedBuilds := []db.Build{
+	// 			inFlightBuilds[0],
+	// 			inFlightBuilds[1],
+	// 			inFlightBuilds[2],
+	// 		}
+	//
+	// 		fakeTrackerDB.GetAllStartedBuildsReturns(returnedBuilds, nil)
+	// 		engineBuilds = []*enginefakes.FakeBuild{}
+	// 		fakeEngine.LookupBuildStub = func(logger lager.Logger, build db.Build) (engine.Build, error) {
+	// 			engineBuild := new(enginefakes.FakeBuild)
+	// 			engineBuilds = append(engineBuilds, engineBuild)
+	// 			return engineBuild, nil
+	// 		}
+	//
+	// 		It("releases the started builds", func() {
+	// 			tracker.Release()
+	//
+	// 			Expect()
+	// 		})
+	// 	})
+	// })
+
 })

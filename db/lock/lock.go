@@ -104,6 +104,7 @@ func (f *lockFactory) NewLock(logger lager.Logger, id LockID) Lock {
 
 type Lock interface {
 	Acquire() (bool, error)
+	IsHeldLocally() bool
 	Release() error
 }
 
@@ -142,7 +143,7 @@ func (l *lock) Acquire() (bool, error) {
 
 	if !acquired {
 		logger.Debug("not-acquired-already-held-in-db")
-		return false, err
+		return false, nil
 	}
 
 	l.locks.Register(l.id)
@@ -150,6 +151,10 @@ func (l *lock) Acquire() (bool, error) {
 	logger.Debug("acquired")
 
 	return true, nil
+}
+
+func (l *lock) IsHeldLocally() bool {
+	return l.locks.IsRegistered(l.id)
 }
 
 func (l *lock) Release() error {

@@ -62,6 +62,7 @@ type Build interface {
 	AbortNotifier() (Notifier, error)
 
 	AcquireTrackingLock(logger lager.Logger, interval time.Duration) (lock.Lock, bool, error)
+	IsTrackedLocally(logger lager.Logger) bool
 
 	GetPreparation() (BuildPreparation, bool, error)
 
@@ -832,6 +833,17 @@ func (b *build) GetImageResourceCacheIdentifiers() ([]ResourceCacheIdentifier, e
 	}
 
 	return identifiers, nil
+}
+
+func (b *build) IsTrackedLocally(logger lager.Logger) bool {
+	lock := b.lockFactory.NewLock(
+		logger.Session("lock", lager.Data{
+			"build_id": b.id,
+		}),
+		lock.NewBuildTrackingLockID(b.id),
+	)
+
+	return lock.IsHeldLocally()
 }
 
 func (b *build) AcquireTrackingLock(logger lager.Logger, interval time.Duration) (lock.Lock, bool, error) {

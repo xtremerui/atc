@@ -95,22 +95,16 @@ func (build *dbBuild) PublicPlan(logger lager.Logger) (atc.PublicBuildPlan, erro
 }
 
 func (build *dbBuild) Release(logger lager.Logger) error {
-	// the order below is very important to avoid races with build creation.
+	logger.Info("calling-release-on-build", lager.Data{
+		"build": build.build.Name(),
+	})
 
-	lock, acquired, err := build.build.AcquireTrackingLock(logger, trackLockDuration)
-	if err != nil {
-		logger.Error("failed-to-get-lock", err)
-		return err
+	if build.build.IsTrackedLocally(logger) {
+		logger.Info("build-is-tracked-locally", lager.Data{
+			"build": build.build.Name(),
+		})
+		close(build.releaseCh)
 	}
-
-	if !acquired {
-		// someone else is tracking the build; no need to release tracking
-		return nil
-	}
-
-	defer lock.Release()
-
-	close(build.releaseCh)
 
 	return nil
 }
@@ -258,8 +252,9 @@ func (build *dbBuild) Resume(logger lager.Logger) {
 			if err != nil {
 				logger.Error("failed-to-abort", err)
 			}
-		case <-done:
 		case <-build.releaseCh:
+			logger.Info("received-close-channel-message-stopping-tracking-build")
+		case <-done:
 		}
 	}()
 
