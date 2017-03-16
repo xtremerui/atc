@@ -43,11 +43,14 @@ func (s *Server) GetAuthToken(w http.ResponseWriter, r *http.Request) {
 	token.Type = string(tokenType)
 	token.Value = string(tokenValue)
 
+	fmt.Println("[Josh] setting cookie")
 	http.SetCookie(w, &http.Cookie{
-		Name:    CookieName,
-		Value:   fmt.Sprintf("%s %s", token.Type, token.Value),
-		Path:    "/",
-		Expires: time.Now().Add(s.expire),
+		Name:     CookieName,
+		Value:    fmt.Sprintf("%s %s", token.Type, token.Value),
+		Path:     "/",
+		Expires:  time.Now().Add(s.expire),
+		Secure:   true,
+		HttpOnly: true,
 	})
 
 	w.Header().Set("Content-Type", "application/json")

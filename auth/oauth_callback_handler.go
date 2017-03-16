@@ -170,11 +170,14 @@ func (handler *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 	tokenStr := string(tokenType) + " " + string(signedToken)
 
+	fmt.Println("[JOSH] oauth callback handler")
 	http.SetCookie(w, &http.Cookie{
-		Name:    CookieName,
-		Value:   tokenStr,
-		Path:    "/",
-		Expires: exp,
+		Name:     CookieName,
+		Value:    tokenStr,
+		Path:     "/",
+		Expires:  exp,
+		Secure:   true,
+		HttpOnly: true,
 	})
 
 	// Deletes the oauth state cookie to avoid CSRF attacks

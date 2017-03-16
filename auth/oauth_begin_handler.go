@@ -10,6 +10,8 @@ import (
 	"github.com/concourse/atc/db"
 
 	"code.cloudfoundry.org/lager"
+
+	"fmt"
 )
 
 const OAuthStateCookie = "_concourse_oauth_state"
@@ -101,11 +103,14 @@ func (handler *OAuthBeginHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	authCodeURL := provider.AuthCodeURL(encodedState)
 
+	fmt.Println("[JOSH] oauth begin handler")
 	http.SetCookie(w, &http.Cookie{
-		Name:    OAuthStateCookie,
-		Value:   encodedState,
-		Path:    "/",
-		Expires: time.Now().Add(handler.expire),
+		Name:     OAuthStateCookie,
+		Value:    encodedState,
+		Path:     "/",
+		Expires:  time.Now().Add(handler.expire),
+		Secure:   true,
+		HttpOnly: true,
 	})
 
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
