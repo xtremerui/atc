@@ -46,13 +46,8 @@ func NewHandler(logger lager.Logger) (http.Handler, error) {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := h.logger.Session("index")
 
-	csrfToken := ""
-	cookie, err := r.Cookie(auth.CSRFCookieName)
-	if err == nil {
-		csrfToken = cookie.Value
-	}
-
-	err = h.template.Execute(w, templateData{
+	csrfToken := w.Header().Get(auth.CSRFHeaderName)
+	err := h.template.Execute(w, templateData{
 		CSRFToken: csrfToken,
 	})
 

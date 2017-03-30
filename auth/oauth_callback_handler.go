@@ -182,13 +182,6 @@ func (handler *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:    CSRFCookieName,
-		Value:   csrfToken,
-		Path:    "/",
-		Expires: exp,
-	})
-
 	tokenStr := string(tokenType) + " " + string(signedToken)
 
 	authCookie := &http.Cookie{
@@ -211,6 +204,8 @@ func (handler *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		Path:   "/",
 		MaxAge: -1,
 	})
+
+	w.Header().Set(CSRFHeaderName, csrfToken)
 
 	const redirectRegExp = `^(?:\/[a-zA-Z0-9\-]*)+\/?$`
 	regMatch, _ := regexp.Compile(redirectRegExp)

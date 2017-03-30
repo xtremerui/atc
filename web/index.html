@@ -62,6 +62,14 @@
           document.title = title + "Concourse";
         }, 0)
       });
+
+      var storageKey = "csrf_token";
+      app.ports.saveToken.subscribe(function(value) {
+        localStorage.setItem(storageKey, value);
+      });
+      app.ports.loadToken.subscribe(function() {
+        app.ports.tokenReceived.send(localStorage.getItem(storageKey));
+      });
     </script>
   </body>
 </html>
