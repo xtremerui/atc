@@ -80,32 +80,25 @@ var _ = Describe("Auth Session", func() {
 		Expect(dbListener.Close()).To(Succeed())
 	})
 
-	It("generates auth token cookie and csrf cookie", func() {
+	It("generates auth token cookie", func() {
 		LoginWithNoAuth(page, atcCommand.URL(""))
 		cookies, err := page.GetCookies()
 		Expect(err).NotTo(HaveOccurred())
 		var authCookie *http.Cookie
-		var csrfCookie *http.Cookie
 		for _, cookie := range cookies {
-			switch cookie.Name {
-			case auth.CSRFCookieName:
-				csrfCookie = cookie
-			case auth.AuthCookieName:
+			if cookie.Name == auth.AuthCookieName {
 				authCookie = cookie
 			}
 		}
-		Expect(csrfCookie).NotTo(BeNil())
-		Expect(csrfCookie.Secure).To(BeFalse())
 		Expect(authCookie).NotTo(BeNil())
 		Expect(authCookie.HttpOnly).To(BeTrue())
 		Expect(authCookie.Secure).To(BeFalse())
 	})
 
 	Context("when request does not contain CSRF token", func() {
-		It("returns 400 Bad Request", func() {
+		FIt("returns 400 Bad Request", func() {
 			LoginWithNoAuth(page, atcCommand.URL(""))
-			err := page.DeleteCookie("CSRF")
-			Expect(err).NotTo(HaveOccurred())
+			Expect(page.RunScript("return localStorage.removeItem('csrf_token')", nil, nil)).To(Succeed())
 
 			Expect(page.Navigate(atcCommand.URL("/teams/main/pipelines/main/jobs/job-name"))).To(Succeed())
 			Eventually(page.Find(".build-action")).Should(BeFound())
