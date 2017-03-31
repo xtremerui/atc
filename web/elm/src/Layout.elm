@@ -71,7 +71,10 @@ init flags location =
             Routes.parsePath location
 
         ( subModel, subCmd ) =
-            SubPage.init flags.turbulenceImgSrc route
+            if flags.csrfToken == "" then
+                  SubPage.init flags.turbulenceImgSrc route
+            else
+                ( SubPage.WaitingModel route, Cmd.none )
 
         ( topModel, topCmd ) =
             TopBar.init route
