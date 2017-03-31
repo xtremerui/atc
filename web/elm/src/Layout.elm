@@ -16,7 +16,9 @@ port newUrl : (String -> msg) -> Sub msg
 
 
 type alias Flags =
-    { turbulenceImgSrc : String}
+    { turbulenceImgSrc : String
+    , csrfToken : String
+    }
 
 
 type alias NavIndex =
@@ -27,9 +29,15 @@ anyNavIndex : NavIndex
 anyNavIndex =
     -1
 
+
 port saveToken : String -> Cmd msg
+
+
 port tokenReceived : (Maybe String -> msg) -> Sub msg
+
+
 port loadToken : () -> Cmd msg
+
 
 type alias Model =
     { navIndex : NavIndex
@@ -50,6 +58,7 @@ type Msg
     | TopMsg NavIndex TopBar.Msg
     | SideMsg NavIndex SideBar.Msg
     | NewUrl String
+    | ModifyUrl String
     | SaveToken String
     | LoadToken
     | TokenReceived String
@@ -72,22 +81,34 @@ init flags location =
 
         navIndex =
             1
-        model = { navIndex = navIndex
-          , subModel = subModel
-          , topModel = topModel
-          , sideModel = sideModel
-          , sidebarVisible = False
-          , turbulenceImgSrc = flags.turbulenceImgSrc
-          , route = route
-          , csrfToken = ""
-          }
 
-        (_, loadTokenCmd) =
-          update (LoadToken) model
+        model =
+            { navIndex = navIndex
+            , subModel = subModel
+            , topModel = topModel
+            , sideModel = sideModel
+            , sidebarVisible = False
+            , turbulenceImgSrc = flags.turbulenceImgSrc
+            , route = route
+            , csrfToken = flags.csrfToken
+            }
+
+        ( _, handleTokenCmd ) =
+            if flags.csrfToken == "" then
+                update (LoadToken) model
+            else
+                update (SaveToken flags.csrfToken) model
+
+        ( _, stripCSRFTokenParamCmd ) =
+            if flags.csrfToken == "" then
+                ( model, Cmd.none )
+            else
+                update (ModifyUrl location.pathname) model
     in
         ( model
         , Cmd.batch
-            [ loadTokenCmd
+            [ handleTokenCmd
+            , stripCSRFTokenParamCmd
             , Cmd.map (SubMsg navIndex) subCmd
             , Cmd.map (TopMsg navIndex) topCmd
             , Cmd.map (SideMsg navIndex) sideCmd
@@ -106,6 +127,9 @@ update msg model =
         NewUrl url ->
             ( model, Navigation.newUrl url )
 
+        ModifyUrl url ->
+            ( model, Navigation.modifyUrl url )
+
         RouteChanged route ->
             urlUpdate route model
 
@@ -117,26 +141,28 @@ update msg model =
             )
 
         SaveToken tokenValue ->
-          ( model, saveToken (tokenValue) )
+            ( model, saveToken (tokenValue) )
 
         LoadToken ->
-          ( model, loadToken () )
+            ( model, loadToken () )
 
         TokenReceived tokenValue ->
-          ( { model
-            | csrfToken = tokenValue
-            }
+            ( { model
+                | csrfToken = tokenValue
+              }
             , Cmd.none
-          )
+            )
 
         SubMsg navIndex (SubPage.LoginMsg (Login.AuthSessionReceived (Ok val))) ->
             let
-                (layoutModel, layoutCmd) =
-                  update (SaveToken val.csrfToken) model
-                (subModel, subCmd) =
-                  SubPage.update model.turbulenceImgSrc val.csrfToken (SubPage.LoginMsg (Login.AuthSessionReceived (Ok val))) model.subModel
-                (sideModel, sideCmd) =
-                  SideBar.update (SideBar.NewCSRFToken val.csrfToken) model.sideModel
+                ( layoutModel, layoutCmd ) =
+                    update (SaveToken val.csrfToken) model
+
+                ( subModel, subCmd ) =
+                    SubPage.update model.turbulenceImgSrc val.csrfToken (SubPage.LoginMsg (Login.AuthSessionReceived (Ok val))) model.subModel
+
+                ( sideModel, sideCmd ) =
+                    SideBar.update (SideBar.NewCSRFToken val.csrfToken) model.sideModel
             in
                 ( { model
                     | subModel = subModel

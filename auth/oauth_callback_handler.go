@@ -217,7 +217,16 @@ func (handler *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	}
 
 	if oauthState.Redirect != "" {
-		http.Redirect(w, r, oauthState.Redirect, http.StatusTemporaryRedirect)
+		redirectURL, err := url.Parse(oauthState.Redirect)
+		if err != nil {
+			hLog.Info("invalid-redirect")
+			http.Error(w, "invalid redirect", http.StatusBadRequest)
+			return
+		}
+		queryParams := redirectURL.Query()
+		queryParams.Set("csrf_token", csrfToken)
+		redirectURL.RawQuery = queryParams.Encode()
+		http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
 		return
 	}
 
