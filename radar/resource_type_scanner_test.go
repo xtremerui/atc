@@ -138,8 +138,8 @@ var _ = Describe("ResourceTypeScanner", func() {
 			It("constructs the resource of the correct type", func() {
 				Expect(fakeResource.CheckCallCount()).To(Equal(1))
 				Expect(fakeResourceFactory.NewCheckResourceCallCount()).To(Equal(1))
-				_, user, metadata, resourceSpec, customTypes, _, resourceConfig := fakeResourceFactory.NewCheckResourceArgsForCall(0)
-				Expect(user).To(Equal(dbng.ForResourceType{ResourceTypeID: 39}))
+				_, _, user, metadata, resourceSpec, customTypes, _, resourceConfig := fakeResourceFactory.NewCheckResourceArgsForCall(0)
+				Expect(user).To(Equal(dbng.ForResourceType(39)))
 				Expect(metadata).To(Equal(dbng.ContainerMetadata{
 					Type: dbng.ContainerTypeCheck,
 				}))
@@ -149,9 +149,8 @@ var _ = Describe("ResourceTypeScanner", func() {
 						ResourceType: "docker-image",
 						Privileged:   true,
 					},
-					Ephemeral: true,
-					Tags:      []string{},
-					TeamID:    123,
+					Tags:   []string{},
+					TeamID: 123,
 				}))
 				Expect(resourceConfig).To(Equal(atc.ResourceConfig{
 					Type:   "docker-image",

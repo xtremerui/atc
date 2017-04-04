@@ -150,8 +150,8 @@ var _ = Describe("ResourceScanner", func() {
 			})
 
 			It("constructs the resource of the correct type", func() {
-				_, user, metadata, resourceSpec, customTypes, _, resourceConfig := fakeResourceFactory.NewCheckResourceArgsForCall(0)
-				Expect(user).To(Equal(dbng.ForResource{ResourceID: 39}))
+				_, _, user, metadata, resourceSpec, customTypes, _, resourceConfig := fakeResourceFactory.NewCheckResourceArgsForCall(0)
+				Expect(user).To(Equal(dbng.ForResource(39)))
 				Expect(metadata).To(Equal(dbng.ContainerMetadata{
 					Type: dbng.ContainerTypeCheck,
 				}))
@@ -161,9 +161,8 @@ var _ = Describe("ResourceScanner", func() {
 						ResourceType: "git",
 						Privileged:   true,
 					},
-					Ephemeral: true,
-					Tags:      atc.Tags{"some-tag"},
-					TeamID:    123,
+					Tags:   atc.Tags{"some-tag"},
+					TeamID: 123,
 					Env: []string{
 						"ATC_EXTERNAL_URL=https://www.example.com",
 						"RESOURCE_PIPELINE_NAME=some-pipeline",
@@ -450,20 +449,18 @@ var _ = Describe("ResourceScanner", func() {
 			})
 
 			It("constructs the resource of the correct type", func() {
-				_, user, metadata, resourceSpec, _, _, resourceConfig := fakeResourceFactory.NewCheckResourceArgsForCall(0)
-				Expect(user).To(Equal(dbng.ForResource{ResourceID: 39}))
+				_, _, user, metadata, resourceSpec, _, _, resourceConfig := fakeResourceFactory.NewCheckResourceArgsForCall(0)
+				Expect(user).To(Equal(dbng.ForResource(39)))
 				Expect(metadata).To(Equal(dbng.ContainerMetadata{
 					Type: dbng.ContainerTypeCheck,
 				}))
-
 				Expect(resourceSpec).To(Equal(worker.ContainerSpec{
 					ImageSpec: worker.ImageSpec{
 						ResourceType: "git",
 						Privileged:   true,
 					},
-					Ephemeral: true,
-					Tags:      atc.Tags{"some-tag"},
-					TeamID:    123,
+					Tags:   atc.Tags{"some-tag"},
+					TeamID: 123,
 					Env: []string{
 						"ATC_EXTERNAL_URL=https://www.example.com",
 						"RESOURCE_PIPELINE_NAME=some-pipeline",

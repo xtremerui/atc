@@ -124,6 +124,9 @@ var _ = Describe("ContainerProvider", func() {
 		fakeLocalInputAS := new(workerfakes.FakeArtifactSource)
 		fakeLocalVolume := new(workerfakes.FakeVolume)
 		fakeLocalVolume.PathReturns("/fake/local/volume")
+		fakeLocalVolume.COWStrategyReturns(baggageclaim.COWStrategy{
+			Parent: new(baggageclaimfakes.FakeVolume),
+		})
 		fakeLocalInputAS.VolumeOnReturns(fakeLocalVolume, true, nil)
 		fakeLocalInput.SourceReturns(fakeLocalInputAS)
 
@@ -156,6 +159,17 @@ var _ = Describe("ContainerProvider", func() {
 			"/some/work-dir/output":       fakeOutputVolume,
 		}
 
+		fakeVolumeClient.FindOrCreateCOWVolumeForContainerStub = func(logger lager.Logger, volumeSpec VolumeSpec, creatingContainer dbng.CreatingContainer, volume Volume, teamID int, mountPath string) (Volume, error) {
+			Expect(volume).To(Equal(fakeLocalVolume))
+
+			volume, found := stubbedVolumes[mountPath]
+			if !found {
+				panic("unknown container volume: " + mountPath)
+			}
+
+			return volume, nil
+		}
+
 		fakeVolumeClient.FindOrCreateVolumeForContainerStub = func(logger lager.Logger, volumeSpec VolumeSpec, creatingContainer dbng.CreatingContainer, teamID int, mountPath string) (Volume, error) {
 			volume, found := stubbedVolumes[mountPath]
 			if !found {
@@ -166,7 +180,7 @@ var _ = Describe("ContainerProvider", func() {
 
 		cancel = make(chan os.Signal)
 
-		resourceUser = dbng.ForBuild{BuildID: 42}
+		resourceUser = dbng.ForBuild(42)
 
 		containerMetadata = dbng.ContainerMetadata{
 			StepName: "some-step",
@@ -578,7 +592,7 @@ var _ = Describe("ContainerProvider", func() {
 		JustBeforeEach(func() {
 			findOrCreateContainer, findOrCreateErr = containerProvider.CreateResourceGetContainer(
 				logger,
-				dbng.ForBuild{BuildID: 42},
+				dbng.ForBuild(42),
 				cancel,
 				fakeImageFetchingDelegate,
 				containerMetadata,

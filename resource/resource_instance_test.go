@@ -11,6 +11,7 @@ import (
 	. "github.com/concourse/atc/resource"
 	"github.com/concourse/atc/worker"
 	"github.com/concourse/atc/worker/workerfakes"
+	"github.com/concourse/baggageclaim"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,7 +37,7 @@ var _ = Describe("ResourceInstance", func() {
 			atc.Version{"some": "version"},
 			atc.Source{"some": "source"},
 			atc.Params{"some": "params"},
-			dbng.ForBuild{42},
+			dbng.ForBuild(42),
 			atc.VersionedResourceTypes{},
 			fakeResourceCacheFactory,
 		)
@@ -55,7 +56,7 @@ var _ = Describe("ResourceInstance", func() {
 
 		It("'find-or-create's the resource cache with the same user", func() {
 			_, user, _, _, _, _, _ := fakeResourceCacheFactory.FindOrCreateResourceCacheArgsForCall(0)
-			Expect(user).To(Equal(dbng.ForBuild{42}))
+			Expect(user).To(Equal(dbng.ForBuild(42)))
 		})
 
 		Context("when failing to find or create cache in database", func() {
@@ -132,21 +133,11 @@ var _ = Describe("ResourceInstance", func() {
 				Expect(createdVolume).To(Equal(volume))
 			})
 
-			It("created with the right properties", func() {
+			It("created with the right strategy and privileges", func() {
 				_, spec, _ := fakeWorkerClient.CreateVolumeForResourceCacheArgsForCall(0)
 				Expect(spec).To(Equal(worker.VolumeSpec{
-					Strategy: worker.ResourceCacheStrategy{
-						ResourceHash:    `some-resource-type{"some":"source"}`,
-						ResourceVersion: atc.Version{"some": "version"},
-					},
-					Properties: worker.VolumeProperties{
-						"resource-type":    "some-resource-type",
-						"resource-version": `{"some":"version"}`,
-						"resource-source":  "968e27f71617a029e58a09fb53895f1e1875b51bdaa11293ddc2cb335960875cb42c19ae8bc696caec88d55221f33c2bcc3278a7d15e8d13f23782d1a05564f1",
-						"resource-params":  "fe7d9dbc2ac75030c3e8c88e54a33676c38d8d9d2876700bc01d4961caf898e7cbe8e738232e86afcf6a5f64a9527c458a130277b08d72fb339962968d0d0967",
-					},
+					Strategy:   baggageclaim.EmptyStrategy{},
 					Privileged: true,
-					TTL:        0,
 				}))
 			})
 		})

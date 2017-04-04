@@ -1,14 +1,13 @@
 package resource
 
 import (
-	"crypto/sha512"
 	"encoding/json"
-	"fmt"
 
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/dbng"
 	"github.com/concourse/atc/worker"
+	"github.com/concourse/baggageclaim"
 )
 
 //go:generate counterfeiter . ResourceInstance
@@ -73,11 +72,7 @@ func (instance resourceInstance) CreateOn(logger lager.Logger, workerClient work
 	return workerClient.CreateVolumeForResourceCache(
 		logger,
 		worker.VolumeSpec{
-			Strategy: worker.ResourceCacheStrategy{
-				ResourceHash:    GenerateResourceHash(instance.source, string(instance.resourceTypeName)),
-				ResourceVersion: instance.version,
-			},
-			Properties: instance.volumeProperties(),
+			Strategy:   baggageclaim.EmptyStrategy{},
 			Privileged: true,
 		},
 		resourceCache,
@@ -105,21 +100,6 @@ func (instance resourceInstance) FindInitializedOn(logger lager.Logger, workerCl
 	)
 }
 
-func (instance resourceInstance) volumeProperties() worker.VolumeProperties {
-	source, _ := json.Marshal(instance.source)
-
-	version, _ := json.Marshal(instance.version)
-
-	params, _ := json.Marshal(instance.params)
-
-	return worker.VolumeProperties{
-		"resource-type":    string(instance.resourceTypeName),
-		"resource-version": string(version),
-		"resource-source":  shastr(source),
-		"resource-params":  shastr(params),
-	}
-}
-
 func (instance resourceInstance) ResourceCacheIdentifier() worker.ResourceCacheIdentifier {
 	return worker.ResourceCacheIdentifier{
 		ResourceVersion: instance.version,
@@ -130,28 +110,4 @@ func (instance resourceInstance) ResourceCacheIdentifier() worker.ResourceCacheI
 func GenerateResourceHash(source atc.Source, resourceType string) string {
 	sourceJSON, _ := json.Marshal(source)
 	return resourceType + string(sourceJSON)
-}
-
-func shastr(b []byte) string {
-	return fmt.Sprintf("%x", sha512.Sum512(b))
-}
-
-func selectLowestAlphabeticalVolume(logger lager.Logger, volumes []worker.Volume) worker.Volume {
-	var lowestVolume worker.Volume
-
-	for _, v := range volumes {
-		if lowestVolume == nil {
-			lowestVolume = v
-		} else if v.Handle() < lowestVolume.Handle() {
-			lowestVolume = v
-		}
-	}
-
-	for _, v := range volumes {
-		if v != lowestVolume {
-			v.Destroy()
-		}
-	}
-
-	return lowestVolume
 }

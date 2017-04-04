@@ -180,7 +180,6 @@ var _ = Describe("Get", func() {
 				StepName:         "some-step",
 				WorkingDirectory: "/tmp/build/get",
 			},
-			Ephemeral: false,
 		}))
 		Expect(tags).To(ConsistOf("some", "tags"))
 		Expect(actualTeamID).To(Equal(teamID))
@@ -189,7 +188,7 @@ var _ = Describe("Get", func() {
 			version,
 			resourceConfig.Source,
 			params,
-			dbng.ForBuild{42},
+			dbng.ForBuild(42),
 			resourceTypes,
 			fakeDBResourceCacheFactory,
 		)))

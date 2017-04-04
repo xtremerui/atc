@@ -248,17 +248,15 @@ func (scanner *resourceScanner) scan(
 			ResourceType: savedResource.Config.Type,
 			Privileged:   true,
 		},
-		Ephemeral: true,
-		Tags:      savedResource.Config.Tags,
-		TeamID:    scanner.dbPipeline.TeamID(),
-		Env:       metadata.Env(),
+		Tags:   savedResource.Config.Tags,
+		TeamID: scanner.dbPipeline.TeamID(),
+		Env:    metadata.Env(),
 	}
 
 	res, err := scanner.resourceFactory.NewCheckResource(
 		logger,
-		dbng.ForResource{
-			ResourceID: savedResource.ID,
-		},
+		nil,
+		dbng.ForResource(savedResource.ID),
 		dbng.ContainerMetadata{
 			Type: dbng.ContainerTypeCheck,
 		},
