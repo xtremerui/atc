@@ -76,33 +76,29 @@ func (c *containerCollector) Run() error {
 		return err
 	}
 
-	creatingContainerHandles := []string{}
-	createdContainerHandles := []string{}
-	destroyingContainerHandles := []string{}
+	if len(creatingContainers) > 0 || len(createdContainers) > 0 || len(destroyingContainers) > 0 {
+		creatingContainerHandles := []string{}
+		createdContainerHandles := []string{}
+		destroyingContainerHandles := []string{}
 
-	if len(creatingContainers) > 0 {
 		for _, container := range creatingContainers {
 			creatingContainerHandles = append(creatingContainerHandles, container.Handle())
 		}
-	}
 
-	if len(createdContainers) > 0 {
 		for _, container := range createdContainers {
 			createdContainerHandles = append(createdContainerHandles, container.Handle())
 		}
-	}
 
-	if len(destroyingContainers) > 0 {
 		for _, container := range destroyingContainers {
 			destroyingContainerHandles = append(destroyingContainerHandles, container.Handle())
 		}
-	}
 
-	logger.Debug("found-containers-for-deletion", lager.Data{
-		"creating-containers":   creatingContainerHandles,
-		"created-containers":    createdContainerHandles,
-		"destroying-containers": destroyingContainerHandles,
-	})
+		logger.Debug("found-containers-for-deletion", lager.Data{
+			"creating-containers":   creatingContainerHandles,
+			"created-containers":    createdContainerHandles,
+			"destroying-containers": destroyingContainerHandles,
+		})
+	}
 
 	for _, creatingContainer := range creatingContainers {
 		cLog := logger.Session("mark-creating-as-created", lager.Data{
