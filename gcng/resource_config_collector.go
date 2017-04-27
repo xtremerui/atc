@@ -15,11 +15,15 @@ func NewResourceConfigCollector(
 	configFactory dbng.ResourceConfigFactory,
 ) Collector {
 	return &resourceConfigCollector{
-		logger:        logger.Session("resource-config-collector"),
+		logger:        logger,
 		configFactory: configFactory,
 	}
 }
 
 func (rcuc *resourceConfigCollector) Run() error {
-	return rcuc.configFactory.CleanUselessConfigs()
+	logger := rcuc.logger.Session("run")
+	logger.Debug("start")
+	defer logger.Debug("done")
+
+	return rcuc.configFactory.CleanUselessConfigs(logger)
 }

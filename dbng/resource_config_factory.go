@@ -1,6 +1,8 @@
 package dbng
 
 import (
+	"database/sql"
+
 	"code.cloudfoundry.org/lager"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/concourse/atc"
@@ -19,12 +21,12 @@ type ResourceConfigFactory interface {
 		resourceTypes atc.VersionedResourceTypes,
 	) (*UsedResourceConfig, error)
 
-	CleanConfigUsesForFinishedBuilds() error
-	CleanConfigUsesForInactiveResourceTypes() error
-	CleanConfigUsesForInactiveResources() error
-	CleanConfigUsesForPausedPipelinesResources() error
-	CleanConfigUsesForOutdatedResourceConfigs() error
-	CleanUselessConfigs() error
+	CleanConfigUsesForFinishedBuilds(lager.Logger) error
+	CleanConfigUsesForInactiveResourceTypes(lager.Logger) error
+	CleanConfigUsesForInactiveResources(lager.Logger) error
+	CleanConfigUsesForPausedPipelinesResources(lager.Logger) error
+	CleanConfigUsesForOutdatedResourceConfigs(lager.Logger) error
+	CleanUselessConfigs(lager.Logger) error
 
 	AcquireResourceCheckingLock(
 		logger lager.Logger,
@@ -79,87 +81,42 @@ func (f *resourceConfigFactory) FindOrCreateResourceConfig(
 	return usedResourceConfig, nil
 }
 
-func constructResourceConfig(
-	resourceType string,
-	source atc.Source,
-	resourceTypes atc.VersionedResourceTypes,
-) (ResourceConfig, error) {
-	resourceConfig := ResourceConfig{
-		Source: source,
-	}
-
-	customType, found := resourceTypes.Lookup(resourceType)
-	if found {
-		customTypeResourceConfig, err := constructResourceConfig(
-			customType.Type,
-			customType.Source,
-			resourceTypes.Without(customType.Name),
-		)
-		if err != nil {
-			return ResourceConfig{}, err
-		}
-
-		resourceConfig.CreatedByResourceCache = &ResourceCache{
-			ResourceConfig: customTypeResourceConfig,
-			Version:        customType.Version,
-		}
-	} else {
-		resourceConfig.CreatedByBaseResourceType = &BaseResourceType{
-			Name: resourceType,
-		}
-	}
-
-	return resourceConfig, nil
+func (f *resourceConfigFactory) CleanConfigUsesForFinishedBuilds(logger lager.Logger) error {
+	return f.logAndDeleteUses(
+		logger,
+		psql.Delete("resource_config_uses rcu USING builds b").
+			Where(sq.Expr("rcu.build_id = b.id")).
+			Where(sq.Expr("NOT b.interceptible")),
+	)
 }
 
-func (f *resourceConfigFactory) CleanConfigUsesForFinishedBuilds() error {
-	_, err := psql.Delete("resource_config_uses rcu USING builds b").
-		Where(sq.Expr("rcu.build_id = b.id")).
-		Where(sq.Expr("NOT b.interceptible")).
-		RunWith(f.conn).
-		Exec()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (f *resourceConfigFactory) CleanConfigUsesForInactiveResourceTypes(logger lager.Logger) error {
+	return f.logAndDeleteUses(
+		logger,
+		psql.Delete("resource_config_uses rcu USING resource_types t").
+			Where(sq.And{
+				sq.Expr("rcu.resource_type_id = t.id"),
+				sq.Eq{
+					"t.active": false,
+				},
+			}),
+	)
 }
 
-func (f *resourceConfigFactory) CleanConfigUsesForInactiveResourceTypes() error {
-	_, err := psql.Delete("resource_config_uses rcu USING resource_types t").
-		Where(sq.And{
-			sq.Expr("rcu.resource_type_id = t.id"),
-			sq.Eq{
-				"t.active": false,
-			},
-		}).
-		RunWith(f.conn).
-		Exec()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (f *resourceConfigFactory) CleanConfigUsesForInactiveResources(logger lager.Logger) error {
+	return f.logAndDeleteUses(
+		logger,
+		psql.Delete("resource_config_uses rcu USING resources r").
+			Where(sq.And{
+				sq.Expr("rcu.resource_id = r.id"),
+				sq.Eq{
+					"r.active": false,
+				},
+			}),
+	)
 }
 
-func (f *resourceConfigFactory) CleanConfigUsesForInactiveResources() error {
-	_, err := psql.Delete("resource_config_uses rcu USING resources r").
-		Where(sq.And{
-			sq.Expr("rcu.resource_id = r.id"),
-			sq.Eq{
-				"r.active": false,
-			},
-		}).
-		RunWith(f.conn).
-		Exec()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (f *resourceConfigFactory) CleanConfigUsesForPausedPipelinesResources() error {
+func (f *resourceConfigFactory) CleanConfigUsesForPausedPipelinesResources(logger lager.Logger) error {
 	pausedPipelineIds, _, err := sq.
 		Select("id").
 		Distinct().
@@ -170,37 +127,29 @@ func (f *resourceConfigFactory) CleanConfigUsesForPausedPipelinesResources() err
 		return err
 	}
 
-	_, err = psql.Delete("resource_config_uses rcu USING resources r").
-		Where(sq.And{
-			sq.Expr("r.pipeline_id NOT IN (" + pausedPipelineIds + ")"),
-			sq.Expr("rcu.resource_id = r.id"),
-		}).
-		RunWith(f.conn).
-		Exec()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return f.logAndDeleteUses(
+		logger,
+		psql.Delete("resource_config_uses rcu USING resources r").
+			Where(sq.And{
+				sq.Expr("r.pipeline_id NOT IN (" + pausedPipelineIds + ")"),
+				sq.Expr("rcu.resource_id = r.id"),
+			}),
+	)
 }
 
-func (f *resourceConfigFactory) CleanConfigUsesForOutdatedResourceConfigs() error {
-	_, err := psql.Delete("resource_config_uses rcu USING resources r, resource_configs rc").
-		Where(sq.And{
-			sq.Expr("rcu.resource_id = r.id"),
-			sq.Expr("rcu.resource_config_id = rc.id"),
-			sq.Expr("r.source_hash != rc.source_hash"),
-		}).
-		RunWith(f.conn).
-		Exec()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (f *resourceConfigFactory) CleanConfigUsesForOutdatedResourceConfigs(logger lager.Logger) error {
+	return f.logAndDeleteUses(
+		logger,
+		psql.Delete("resource_config_uses rcu USING resources r, resource_configs rc").
+			Where(sq.And{
+				sq.Expr("rcu.resource_id = r.id"),
+				sq.Expr("rcu.resource_config_id = rc.id"),
+				sq.Expr("r.source_hash != rc.source_hash"),
+			}),
+	)
 }
 
-func (f *resourceConfigFactory) CleanUselessConfigs() error {
+func (f *resourceConfigFactory) CleanUselessConfigs(logger lager.Logger) error {
 	stillInUseConfigIds, _, err := sq.
 		Select("resource_config_id").
 		Distinct().
@@ -219,11 +168,13 @@ func (f *resourceConfigFactory) CleanUselessConfigs() error {
 		return err
 	}
 
-	_, err = psql.Delete("resource_configs").
+	delete := psql.Delete("resource_configs").
 		Where("id NOT IN (" + stillInUseConfigIds + ")").
 		Where("id NOT IN (" + usedByResourceCachesIds + ")").
-		PlaceholderFormat(sq.Dollar).
-		RunWith(f.conn).Exec()
+		Suffix("RETURNING id, base_resource_type_id, resource_cache_id, source_hash").
+		PlaceholderFormat(sq.Dollar)
+
+	rows, err := sq.QueryWith(f.conn, delete)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code.Name() == "foreign_key_violation" {
 			// this can happen if a use or resource cache is created referencing the
@@ -232,6 +183,34 @@ func (f *resourceConfigFactory) CleanUselessConfigs() error {
 		}
 
 		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var baseResourceTypeID, resourceCacheID sql.NullInt64
+		var sourceHash string
+		err := rows.Scan(&id, &baseResourceTypeID, &resourceCacheID, &sourceHash)
+		if err != nil {
+			logger.Error("failed-to-scan-deleted-row", err)
+			return err
+		}
+
+		data := lager.Data{
+			"id":          id,
+			"source-hash": sourceHash,
+		}
+
+		if baseResourceTypeID.Valid {
+			data["base-resource-type-id"] = baseResourceTypeID.Int64
+		}
+
+		if resourceCacheID.Valid {
+			data["resource-cache-id"] = resourceCacheID.Int64
+		}
+
+		logger.Debug("deleted-resource-config", data)
 	}
 
 	return nil
@@ -274,6 +253,80 @@ func (f *resourceConfigFactory) AcquireResourceCheckingLock(
 		resourceConfig,
 		f.lockFactory,
 	)
+}
+
+func (f *resourceConfigFactory) logAndDeleteUses(logger lager.Logger, delete sq.DeleteBuilder) error {
+	delete = delete.Suffix("RETURNING resource_config_id, build_id, resource_id, resource_type_id")
+
+	rows, err := sq.QueryWith(f.conn, delete)
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var resourceConfigID int
+		var buildID, resourceID, resourceTypeID sql.NullInt64
+		err := rows.Scan(&resourceConfigID, &buildID, &resourceID, &resourceTypeID)
+		if err != nil {
+			logger.Error("failed-to-scan-deleted-row", err)
+			return err
+		}
+
+		data := lager.Data{
+			"resource-config-id": resourceConfigID,
+		}
+
+		if buildID.Valid {
+			data["build-id"] = buildID.Int64
+		}
+
+		if resourceID.Valid {
+			data["resource-id"] = resourceID.Int64
+		}
+
+		if resourceTypeID.Valid {
+			data["resource-type-id"] = resourceTypeID.Int64
+		}
+
+		logger.Debug("deleted-resource-config-use", data)
+	}
+
+	return nil
+}
+
+func constructResourceConfig(
+	resourceType string,
+	source atc.Source,
+	resourceTypes atc.VersionedResourceTypes,
+) (ResourceConfig, error) {
+	resourceConfig := ResourceConfig{
+		Source: source,
+	}
+
+	customType, found := resourceTypes.Lookup(resourceType)
+	if found {
+		customTypeResourceConfig, err := constructResourceConfig(
+			customType.Type,
+			customType.Source,
+			resourceTypes.Without(customType.Name),
+		)
+		if err != nil {
+			return ResourceConfig{}, err
+		}
+
+		resourceConfig.CreatedByResourceCache = &ResourceCache{
+			ResourceConfig: customTypeResourceConfig,
+			Version:        customType.Version,
+		}
+	} else {
+		resourceConfig.CreatedByBaseResourceType = &BaseResourceType{
+			Name: resourceType,
+		}
+	}
+
+	return resourceConfig, nil
 }
 
 func acquireResourceCheckingLock(

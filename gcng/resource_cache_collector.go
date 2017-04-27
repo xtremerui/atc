@@ -15,11 +15,15 @@ func NewResourceCacheCollector(
 	cacheFactory dbng.ResourceCacheFactory,
 ) Collector {
 	return &resourceCacheCollector{
-		logger:       logger.Session("resource-cache-collector"),
+		logger:       logger,
 		cacheFactory: cacheFactory,
 	}
 }
 
 func (rcuc *resourceCacheCollector) Run() error {
-	return rcuc.cacheFactory.CleanUpInvalidCaches()
+	logger := rcuc.logger.Session("run")
+	logger.Debug("start")
+	defer logger.Debug("done")
+
+	return rcuc.cacheFactory.CleanUpInvalidCaches(logger)
 }
