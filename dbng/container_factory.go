@@ -1,6 +1,11 @@
 package dbng
 
-import sq "github.com/Masterminds/squirrel"
+import (
+	"database/sql"
+	"log"
+
+	sq "github.com/Masterminds/squirrel"
+)
 
 //go:generate counterfeiter . ContainerFactory
 
@@ -47,21 +52,64 @@ func (factory *containerFactory) FindContainersForDeletion() ([]CreatingContaine
 	createdContainers := []CreatedContainer{}
 	destroyingContainers := []DestroyingContainer{}
 
+	boolShit :=
+		psql.Select(
+			`
+				(c.build_id IS NOT NULL AND b.interceptible = false) OR
+				(c.best_if_used_by < NOW()) OR
+				(c.build_id IS NULL AND c.resource_config_id IS NULL AND c.worker_resource_cache_id IS NULL) OR
+				(c.resource_config_id IS NOT NULL AND c.worker_base_resource_type_id IS NULL) OR
+				(c.worker_resource_cache_id IS NOT NULL AND v.initialized = true) OR
+				(c.worker_resource_cache_id IS NOT NULL AND rcu.cnt IS NULL)
+			`,
+			"(c.build_id IS NOT NULL AND b.interceptible = false)",
+			"(c.best_if_used_by < NOW())",
+			"(c.build_id IS NULL AND c.resource_config_id IS NULL AND c.worker_resource_cache_id IS NULL)",
+			"(c.resource_config_id IS NOT NULL AND c.worker_base_resource_type_id IS NULL)",
+			"(c.worker_resource_cache_id IS NOT NULL AND v.initialized = true)",
+			"(c.worker_resource_cache_id IS NOT NULL AND rcu.cnt IS NULL)", // if there are no records, join will add NULL columns
+		).From("containers c").
+			LeftJoin("builds b ON b.id = c.build_id").
+			LeftJoin("volumes v ON v.worker_resource_cache_id = c.worker_resource_cache_id").
+			LeftJoin("worker_resource_caches wrc ON wrc.id = c.worker_resource_cache_id").
+			LeftJoin("(select resource_cache_id, count(*) cnt from resource_cache_uses GROUP BY resource_cache_id) rcu ON rcu.resource_cache_id = wrc.resource_cache_id")
 	for rows.Next() {
 		creatingContainer, createdContainer, destroyingContainer, err := scanContainer(rows, factory.conn)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 
+		var a, b, c, d, e, f, g sql.NullBool
 		if creatingContainer != nil {
+			err := boolShit.Where(sq.Eq{"c.id": creatingContainer.ID()}).RunWith(factory.conn).QueryRow().Scan(&a, &b, &c, &d, &e, &f, &g)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+
+			log.Println("DESTROY CREATING", creatingContainer.Handle(), a, b, c, d, e, f, g)
+
 			creatingContainers = append(creatingContainers, creatingContainer)
 		}
 
 		if createdContainer != nil {
+			err := boolShit.Where(sq.Eq{"c.id": createdContainer.ID()}).RunWith(factory.conn).QueryRow().Scan(&a, &b, &c, &d, &e, &f, &g)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+
+			log.Println("DESTROY CREATED", createdContainer.Handle(), a, b, c, d, e, f, g)
+
 			createdContainers = append(createdContainers, createdContainer)
 		}
 
 		if destroyingContainer != nil {
+			err := boolShit.Where(sq.Eq{"c.id": destroyingContainer.ID()}).RunWith(factory.conn).QueryRow().Scan(&a, &b, &c, &d, &e, &f, &g)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+
+			log.Println("DESTROY DESTROYING", destroyingContainer.Handle(), a, b, c, d, e, f, g)
+
 			destroyingContainers = append(destroyingContainers, destroyingContainer)
 		}
 	}

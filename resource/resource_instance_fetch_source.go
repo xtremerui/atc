@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"fmt"
 	"os"
 
 	"code.cloudfoundry.org/lager"
@@ -100,6 +101,8 @@ func (s *resourceInstanceFetchSource) Initialize(signals <-chan os.Signal, ready
 		sLog.Error("failed-to-create-container", err)
 		return err
 	}
+
+	fmt.Fprintln(s.resourceOptions.IOConfig().Stderr, "container is", container.Handle())
 
 	s.versionedSource, err = NewResourceForContainer(container).Get(
 		volume,

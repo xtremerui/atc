@@ -137,7 +137,10 @@ func (f *resourceConfigFactory) CleanConfigUsesForPausedPipelinesResources(logge
 	)
 }
 
+// XXX: this is broken; multiple configs will be used by the same resource if
+// the resource uses a custom type
 func (f *resourceConfigFactory) CleanConfigUsesForOutdatedResourceConfigs(logger lager.Logger) error {
+	return nil
 	return f.logAndDeleteUses(
 		logger,
 		psql.Delete("resource_config_uses rcu USING resources r, resource_configs rc").

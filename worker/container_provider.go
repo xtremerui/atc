@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -290,6 +291,8 @@ func (p *containerProvider) CreateResourceGetContainer(
 		logger.Error("failed-to-get-resource-cache", err, lager.Data{"user": resourceUser})
 		return nil, err
 	}
+
+	log.Println("RESOURCE CACHE", resourceUser.Description(), resourceCache)
 
 	return p.findOrCreateContainer(
 		logger,

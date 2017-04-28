@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -269,6 +270,8 @@ func (t *team) CreateResourceGetContainer(
 	insMap["handle"] = handle.String()
 	insMap["team_id"] = t.id
 	insMap["worker_resource_cache_id"] = workerResourcCache.ID
+
+	log.Println("CREATE RESOURCE GET", handle, resourceCache, workerResourcCache)
 
 	err = psql.Insert("containers").
 		SetMap(insMap).
