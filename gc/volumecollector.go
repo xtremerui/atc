@@ -66,20 +66,6 @@ func (vc *volumeCollector) Run() error {
 		err               error
 	)
 
-	creatingVolumes, createdVolumes, destroyingVolumes, err = vc.volumeFactory.GetDuplicateResourceCacheVolumes()
-	if err != nil {
-		logger.Error("failed-to-get-duplicate-resource-cache-volumes", err)
-		return err
-	}
-
-	if len(creatingVolumes) > 0 || len(createdVolumes) > 0 || len(destroyingVolumes) > 0 {
-		logger.Debug("found-duplicate-resource-cache-volumes", lager.Data{
-			"creating":   len(creatingVolumes),
-			"created":    len(createdVolumes),
-			"destroying": len(destroyingVolumes),
-		})
-	}
-
 	orphanedCreatedVolumes, orphanedDestroyingVolumes, err := vc.volumeFactory.GetOrphanedVolumes()
 	if err != nil {
 		logger.Error("failed-to-get-orphaned-volumes", err)

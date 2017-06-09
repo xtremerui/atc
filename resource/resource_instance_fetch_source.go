@@ -61,7 +61,7 @@ func (s *resourceInstanceFetchSource) LockName() (string, error) {
 func (s *resourceInstanceFetchSource) FindInitialized() (VersionedSource, bool, error) {
 	sLog := s.logger.Session("is-initialized")
 
-	volume, found, err := s.resourceInstance.FindInitializedOn(s.logger, s.worker)
+	volume, found, err := s.resourceInstance.FindOn(s.logger, s.worker)
 	if err != nil {
 		sLog.Error("failed-to-find-initialized-on", err)
 		return nil, false, err
@@ -100,16 +100,48 @@ func (s *resourceInstanceFetchSource) Initialize(signals <-chan os.Signal, ready
 		return versionedSource, nil
 	}
 
-	volume, err := s.resourceInstance.CreateOn(sLog, s.worker)
-	if err != nil {
-		sLog.Error("failed-to-create-cache", err)
-		return nil, err
+	// volume, err := s.resourceInstance.CreateOn(sLog, s.worker)
+	// if err != nil {
+	// 	sLog.Error("failed-to-create-cache", err)
+	// 	return nil, err
+	// }
+
+	mountPath := ResourcesDir("get")
+
+	containerSpec := worker.ContainerSpec{
+		ImageSpec: worker.ImageSpec{
+			ResourceType: string(s.resourceOptions.ResourceType()),
+		},
+		Tags:   s.tags,
+		TeamID: s.teamID,
+		Env:    s.metadata.Env(),
+
+		Outputs: map[string]string{
+			"resource": mountPath,
+		},
 	}
 
-	container, err := s.createContainerForVolume(volume)
+	container, err := s.worker.FindOrCreateContainer(
+		s.logger,
+		nil,
+		s.imageFetchingDelegate,
+		s.resourceInstance.ResourceUser(),
+		s.resourceInstance.ContainerOwner(),
+		s.session.Metadata,
+		containerSpec,
+		s.resourceTypes,
+	)
 	if err != nil {
 		sLog.Error("failed-to-create-container", err)
 		return nil, err
+	}
+
+	var volume worker.Volume
+	for _, mount := range container.VolumeMounts() {
+		if mount.MountPath == mountPath {
+			volume = mount.Volume
+			break
+		}
 	}
 
 	versionedSource, err = NewResourceForContainer(container).Get(
@@ -137,7 +169,7 @@ func (s *resourceInstanceFetchSource) Initialize(signals <-chan os.Signal, ready
 		return nil, err
 	}
 
-	err = volume.Initialize()
+	err = volume.InitializeResourceCache(s.resourceCache)
 	if err != nil {
 		sLog.Error("failed-to-initialize-cache", err)
 		return nil, err
@@ -150,31 +182,4 @@ func (s *resourceInstanceFetchSource) Initialize(signals <-chan os.Signal, ready
 	}
 
 	return versionedSource, nil
-}
-
-func (s *resourceInstanceFetchSource) createContainerForVolume(volume worker.Volume) (worker.Container, error) {
-	containerSpec := worker.ContainerSpec{
-		ImageSpec: worker.ImageSpec{
-			ResourceType: string(s.resourceOptions.ResourceType()),
-		},
-		Tags:   s.tags,
-		TeamID: s.teamID,
-		Env:    s.metadata.Env(),
-
-		ResourceCache: &worker.VolumeMount{
-			Volume:    volume,
-			MountPath: ResourcesDir("get"),
-		},
-	}
-
-	return s.worker.FindOrCreateContainer(
-		s.logger,
-		nil,
-		s.imageFetchingDelegate,
-		s.resourceInstance.ResourceUser(),
-		s.resourceInstance.ContainerOwner(),
-		s.session.Metadata,
-		containerSpec,
-		s.resourceTypes,
-	)
 }
