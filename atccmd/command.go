@@ -23,6 +23,9 @@ import (
 	"github.com/concourse/atc/api/buildserver"
 	"github.com/concourse/atc/auth"
 	"github.com/concourse/atc/builds"
+	"github.com/concourse/atc/creds"
+	"github.com/concourse/atc/creds/noop"
+	"github.com/concourse/atc/creds/vault"
 	"github.com/concourse/atc/db"
 	"github.com/concourse/atc/db/lock"
 	"github.com/concourse/atc/engine"
@@ -44,6 +47,7 @@ import (
 	"github.com/cppforlife/go-semi-semantic/version"
 	jwt "github.com/dgrijalva/jwt-go"
 	multierror "github.com/hashicorp/go-multierror"
+	vaultapi "github.com/hashicorp/vault/api"
 	flags "github.com/jessevdk/go-flags"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -84,6 +88,9 @@ type ATCCommand struct {
 	OAuthBaseURL URLFlag `long:"oauth-base-url" description:"URL used as the base of OAuth redirect URIs. If not specified, the external URL is used."`
 
 	AuthDuration time.Duration `long:"auth-duration" default:"24h" description:"Length of time for which tokens are valid. Afterwards, users will have to log back in."`
+
+	VaultClientToken string `long:"vault-client-token" description:"Vault client token for accessing secrets within vault server."`
+	VaultServerURL   string `long:"vault-server-url" description:"Vault server URL used to access secrets, for example, http://127.0.0.1:8200"`
 
 	EncryptionKey    CipherFlag `long:"encryption-key"     description:"A 16 or 32 length key used to encrypt sensitive information before storing it in the database."`
 	OldEncryptionKey CipherFlag `long:"old-encryption-key" description:"Encryption key previously used for encrypting sensitive information. If provided without a new key, data is encrypted. If provided with a new key, data is re-encrypted."`
@@ -211,6 +218,22 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 	retryingDriverName := "too-many-connections-retrying"
 	db.SetupConnectionRetryingDriver(connectionCountingDriverName, cmd.Postgres.ConnectionString(), retryingDriverName)
 
+	var variablesFactory creds.VariablesFactory
+	if cmd.VaultClientToken != "" && cmd.VaultServerURL != "" {
+		client, err := vaultapi.NewClient(vaultapi.DefaultConfig())
+		if err != nil {
+			return nil, err
+		}
+
+		client.SetAddress(cmd.VaultServerURL)
+		client.SetToken(cmd.VaultClientToken)
+		c := client.Logical()
+
+		variablesFactory = vault.NewVaultFactory(*c)
+	} else {
+		variablesFactory = noop.NewNoopFactory()
+	}
+
 	var newKey *db.EncryptionKey
 	if cmd.EncryptionKey.AEAD != nil {
 		newKey = db.NewEncryptionKey(cmd.EncryptionKey.AEAD)
@@ -278,6 +301,7 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 		dbResourceConfigFactory,
 		cmd.ResourceCheckingInterval,
 		cmd.ExternalURL.String(),
+		variablesFactory,
 	)
 
 	signingKey, err := cmd.loadOrGenerateSigningKey()
@@ -323,6 +347,7 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 		drain,
 		radarSchedulerFactory,
 		radarScannerFactory,
+		variablesFactory,
 	)
 
 	if err != nil {
@@ -419,6 +444,7 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 				logger.Session("syncer"),
 				dbPipelineFactory,
 				radarSchedulerFactory,
+				variablesFactory,
 			),
 			Interval: 10 * time.Second,
 			Clock:    clock.NewClock(),
@@ -883,6 +909,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 	drain <-chan struct{},
 	radarSchedulerFactory pipelines.RadarSchedulerFactory,
 	radarScannerFactory radar.ScannerFactory,
+	variablesFactory creds.VariablesFactory,
 ) (http.Handler, error) {
 	authValidator := auth.JWTValidator{
 		PublicKey: &signingKey.PublicKey,
@@ -949,6 +976,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 		cmd.CLIArtifactsDir.Path(),
 		Version,
 		WorkerVersion,
+		variablesFactory,
 	)
 }
 
@@ -976,18 +1004,20 @@ func (cmd *ATCCommand) constructPipelineSyncer(
 	logger lager.Logger,
 	pipelineFactory db.PipelineFactory,
 	radarSchedulerFactory pipelines.RadarSchedulerFactory,
+	variablesFactory creds.VariablesFactory,
 ) *pipelines.Syncer {
 	return pipelines.NewSyncer(
 		logger,
 		pipelineFactory,
 		func(pipeline db.Pipeline) ifrit.Runner {
+			variables := variablesFactory.NewVariables(pipeline.TeamName(), pipeline.Name())
 			return grouper.NewParallel(os.Interrupt, grouper.Members{
 				{
 					pipeline.ScopedName("radar"),
 					radar.NewRunner(
 						logger.Session(pipeline.ScopedName("radar")),
 						cmd.Developer.Noop,
-						radarSchedulerFactory.BuildScanRunnerFactory(pipeline, cmd.ExternalURL.String()),
+						radarSchedulerFactory.BuildScanRunnerFactory(pipeline, cmd.ExternalURL.String(), variables),
 						pipeline,
 						1*time.Minute,
 					),
@@ -999,7 +1029,7 @@ func (cmd *ATCCommand) constructPipelineSyncer(
 
 						Pipeline: pipeline,
 
-						Scheduler: radarSchedulerFactory.BuildScheduler(pipeline, cmd.ExternalURL.String()),
+						Scheduler: radarSchedulerFactory.BuildScheduler(pipeline, cmd.ExternalURL.String(), variables),
 
 						Noop: cmd.Developer.Noop,
 
