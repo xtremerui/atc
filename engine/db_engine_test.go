@@ -616,9 +616,9 @@ var _ = Describe("DBEngine", func() {
 						})
 
 						It("marks the build as errored", func() {
-							Expect(dbBuild.FinishCallCount()).To(Equal(1))
-							buildStatus := dbBuild.FinishArgsForCall(0)
-							Expect(buildStatus).To(Equal(db.BuildStatusErrored))
+							Expect(dbBuild.FinishWithErrorCallCount()).To(Equal(1))
+							finishErr := dbBuild.FinishWithErrorArgsForCall(0)
+							Expect(finishErr).To(Equal(disaster))
 						})
 					})
 				})
@@ -631,9 +631,9 @@ var _ = Describe("DBEngine", func() {
 					})
 
 					It("marks the build as errored", func() {
-						Expect(dbBuild.FinishCallCount()).To(Equal(1))
-						buildStatus := dbBuild.FinishArgsForCall(0)
-						Expect(buildStatus).To(Equal(db.BuildStatusErrored))
+						Expect(dbBuild.FinishWithErrorCallCount()).To(Equal(1))
+						finishErr := dbBuild.FinishWithErrorArgsForCall(0)
+						Expect(finishErr).To(Equal(UnknownEngineError{Engine: "bogus"}))
 					})
 				})
 

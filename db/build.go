@@ -27,14 +27,14 @@ const (
 	BuildStatusErrored   BuildStatus = "errored"
 )
 
-var buildsQuery = psql.Select("b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, b.reap_time, j.name, p.id, p.name, t.name").
+var buildsQuery = psql.Select("b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, b.reap_time, j.name, p.id, p.name, t.name, b.nonce").
 	From("builds b").
 	JoinClause("LEFT OUTER JOIN jobs j ON b.job_id = j.id").
 	JoinClause("LEFT OUTER JOIN pipelines p ON j.pipeline_id = p.id").
 	JoinClause("LEFT OUTER JOIN teams t ON b.team_id = t.id")
 
 // XXX not something we want to keep
-const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, b.reap_time, j.name as job_name, p.id as pipeline_id, p.name as pipeline_name, t.name as team_name"
+const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, b.reap_time, j.name as job_name, p.id as pipeline_id, p.name as pipeline_name, t.name as team_name, b.nonce"
 
 //go:generate counterfeiter . Build
 
@@ -65,9 +65,10 @@ type Build interface {
 	Preparation() (BuildPreparation, bool, error)
 
 	Start(string, string) (bool, error)
-	SaveStatus(BuildStatus) error
+	FinishWithError(cause error) error
+	Finish(BuildStatus) error
+
 	SetInterceptible(bool) error
-	MarkAsFailed(cause error) error
 
 	Events(uint) (EventSource, error)
 	SaveEvent(event atc.Event) error
@@ -82,9 +83,8 @@ type Build interface {
 
 	Pipeline() (Pipeline, bool, error)
 
-	Finish(BuildStatus) error
 	Delete() (bool, error)
-	Abort() error
+	MarkAsAborted() error
 	AbortNotifier() (Notifier, error)
 	Schedule() (bool, error)
 }
@@ -149,7 +149,7 @@ func (b *build) Reload() (bool, error) {
 		RunWith(b.conn).
 		QueryRow()
 
-	err := scanBuild(b, row)
+	err := scanBuild(b, row, b.conn.EncryptionStrategy())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
@@ -254,31 +254,7 @@ func (b *build) Start(engine, metadata string) (bool, error) {
 	return true, nil
 }
 
-func (b *build) SaveStatus(status BuildStatus) error {
-	rows, err := psql.Update("builds").
-		Set("status", status).
-		Where(sq.Eq{
-			"id": b.id,
-		}).
-		RunWith(b.conn).
-		Exec()
-	if err != nil {
-		return err
-	}
-
-	affected, err := rows.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if affected == 0 {
-		return ErrBuildDisappeared
-	}
-
-	return nil
-}
-
-func (b *build) MarkAsFailed(cause error) error {
+func (b *build) FinishWithError(cause error) error {
 	err := b.SaveEvent(event.Error{
 		Message: cause.Error(),
 	})
@@ -375,7 +351,13 @@ func (b *build) Delete() (bool, error) {
 	return true, nil
 }
 
-func (b *build) Abort() error {
+// MarkAsAborted will send the abort notification to all build abort
+// channel listeners. It will set the status to aborted that will make
+// AbortNotifier send notification in case if tracking ATC misses the first
+// notification on abort channel.
+// Setting status as aborted will also make Start() return false in case where
+// build was aborted before it was started.
+func (b *build) MarkAsAborted() error {
 	_, err := psql.Update("builds").
 		Set("status", string(BuildStatusAborted)).
 		Where(sq.Eq{"id": b.id}).
@@ -393,6 +375,9 @@ func (b *build) Abort() error {
 	return nil
 }
 
+// AbortNotifier returns a Notifier that can be watched for when the build
+// is marked as aborted. Once the build is marked as aborted it will send a
+// notification to finish the build to ATC that is tracking this build.
 func (b *build) AbortNotifier() (Notifier, error) {
 	return newConditionNotifier(b.conn.Bus(), buildAbortChannel(b.id), func() (bool, error) {
 		var aborted bool
@@ -964,16 +949,17 @@ func buildEventSeq(buildid int) string {
 	return fmt.Sprintf("build_event_id_seq_%d", buildid)
 }
 
-func scanBuild(b *build, row scannable) error {
+func scanBuild(b *build, row scannable, encryptionStrategy EncryptionStrategy) error {
 	var (
 		jobID, pipelineID                             sql.NullInt64
 		engine, engineMetadata, jobName, pipelineName sql.NullString
 		startTime, endTime, reapTime                  pq.NullTime
+		nonce                                         sql.NullString
 
 		status string
 	)
 
-	err := row.Scan(&b.id, &b.name, &jobID, &b.teamID, &status, &b.isManuallyTriggered, &b.scheduled, &engine, &engineMetadata, &startTime, &endTime, &reapTime, &jobName, &pipelineID, &pipelineName, &b.teamName)
+	err := row.Scan(&b.id, &b.name, &jobID, &b.teamID, &status, &b.isManuallyTriggered, &b.scheduled, &engine, &engineMetadata, &startTime, &endTime, &reapTime, &jobName, &pipelineID, &pipelineName, &b.teamName, &nonce)
 	if err != nil {
 		return err
 	}
@@ -984,10 +970,20 @@ func scanBuild(b *build, row scannable) error {
 	b.pipelineName = pipelineName.String
 	b.pipelineID = int(pipelineID.Int64)
 	b.engine = engine.String
-	b.engineMetadata = engineMetadata.String
 	b.startTime = startTime.Time
 	b.endTime = endTime.Time
 	b.reapTime = reapTime.Time
+
+	var noncense *string
+	if nonce.Valid {
+		noncense = &nonce.String
+	}
+
+	decryptedEngineMetadata, err := encryptionStrategy.Decrypt(string(engineMetadata.String), noncense)
+	if err != nil {
+		return err
+	}
+	b.engineMetadata = string(decryptedEngineMetadata)
 
 	return nil
 }

@@ -164,7 +164,7 @@ var _ = Describe("BuildFactory", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(i).To(BeTrue())
 
-				err = b.SaveStatus(db.BuildStatusStarted)
+				_, err = b.Start("exec.v2", "")
 				Expect(err).NotTo(HaveOccurred())
 
 				err = buildFactory.MarkNonInterceptibleBuilds()

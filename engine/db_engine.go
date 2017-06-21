@@ -129,7 +129,7 @@ func (build *dbBuild) Abort(logger lager.Logger) error {
 	if !acquired {
 		// someone else is tracking the build; abort it, which will notify them
 		logger.Info("notifying-other-tracker")
-		return build.build.Abort()
+		return build.build.MarkAsAborted()
 	}
 
 	defer lock.Release()
@@ -138,7 +138,7 @@ func (build *dbBuild) Abort(logger lager.Logger) error {
 
 	// first save the status so that CreateBuild will see a conflict when it
 	// tries to mark the build as started.
-	err = build.build.Abort()
+	err = build.build.MarkAsAborted()
 	if err != nil {
 		logger.Error("failed-to-abort-in-database", err)
 		return err
@@ -229,17 +229,18 @@ func (build *dbBuild) Resume(logger lager.Logger) {
 
 	buildEngine, found := build.engines.Lookup(buildEngineName)
 	if !found {
-		logger.Error("unknown-build-engine", nil, lager.Data{
+		err := UnknownEngineError{Engine: buildEngineName}
+		logger.Error("unknown-build-engine", err, lager.Data{
 			"engine": buildEngineName,
 		})
-		build.finishWithError(logger)
+		build.finishWithError(logger, err)
 		return
 	}
 
 	engineBuild, err := buildEngine.LookupBuild(logger, build.build)
 	if err != nil {
 		logger.Error("failed-to-lookup-build-from-engine", err)
-		build.finishWithError(logger)
+		build.finishWithError(logger, err)
 		return
 	}
 
@@ -306,8 +307,8 @@ func (build *dbBuild) Resume(logger lager.Logger) {
 	}
 }
 
-func (build *dbBuild) finishWithError(logger lager.Logger) {
-	err := build.build.Finish(db.BuildStatusErrored)
+func (build *dbBuild) finishWithError(logger lager.Logger, finishErr error) {
+	err := build.build.FinishWithError(finishErr)
 	if err != nil {
 		logger.Error("failed-to-mark-build-as-errored", err)
 	}

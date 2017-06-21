@@ -252,7 +252,7 @@ type FakeBuild struct {
 	setInterceptibleReturnsOnCall map[int]struct {
 		result1 error
 	}
-	MarkAsFailedStub        func(cause error) error
+	FinishWithErrorStub        func(cause error) error
 	markAsFailedMutex       sync.RWMutex
 	markAsFailedArgsForCall []struct {
 		cause error
@@ -1441,16 +1441,16 @@ func (fake *FakeBuild) SetInterceptibleReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeBuild) MarkAsFailed(cause error) error {
+func (fake *FakeBuild) FinishWithError(cause error) error {
 	fake.markAsFailedMutex.Lock()
 	ret, specificReturn := fake.markAsFailedReturnsOnCall[len(fake.markAsFailedArgsForCall)]
 	fake.markAsFailedArgsForCall = append(fake.markAsFailedArgsForCall, struct {
 		cause error
 	}{cause})
-	fake.recordInvocation("MarkAsFailed", []interface{}{cause})
+	fake.recordInvocation("FinishWithError", []interface{}{cause})
 	fake.markAsFailedMutex.Unlock()
-	if fake.MarkAsFailedStub != nil {
-		return fake.MarkAsFailedStub(cause)
+	if fake.FinishWithErrorStub != nil {
+		return fake.FinishWithErrorStub(cause)
 	}
 	if specificReturn {
 		return ret.result1
@@ -1458,27 +1458,27 @@ func (fake *FakeBuild) MarkAsFailed(cause error) error {
 	return fake.markAsFailedReturns.result1
 }
 
-func (fake *FakeBuild) MarkAsFailedCallCount() int {
+func (fake *FakeBuild) FinishWithErrorCallCount() int {
 	fake.markAsFailedMutex.RLock()
 	defer fake.markAsFailedMutex.RUnlock()
 	return len(fake.markAsFailedArgsForCall)
 }
 
-func (fake *FakeBuild) MarkAsFailedArgsForCall(i int) error {
+func (fake *FakeBuild) FinishWithErrorArgsForCall(i int) error {
 	fake.markAsFailedMutex.RLock()
 	defer fake.markAsFailedMutex.RUnlock()
 	return fake.markAsFailedArgsForCall[i].cause
 }
 
-func (fake *FakeBuild) MarkAsFailedReturns(result1 error) {
-	fake.MarkAsFailedStub = nil
+func (fake *FakeBuild) FinishWithErrorReturns(result1 error) {
+	fake.FinishWithErrorStub = nil
 	fake.markAsFailedReturns = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *FakeBuild) MarkAsFailedReturnsOnCall(i int, result1 error) {
-	fake.MarkAsFailedStub = nil
+func (fake *FakeBuild) FinishWithErrorReturnsOnCall(i int, result1 error) {
+	fake.FinishWithErrorStub = nil
 	if fake.markAsFailedReturnsOnCall == nil {
 		fake.markAsFailedReturnsOnCall = make(map[int]struct {
 			result1 error
@@ -2012,7 +2012,7 @@ func (fake *FakeBuild) DeleteReturnsOnCall(i int, result1 bool, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeBuild) Abort() error {
+func (fake *FakeBuild) MarkAsAborted() error {
 	fake.abortMutex.Lock()
 	ret, specificReturn := fake.abortReturnsOnCall[len(fake.abortArgsForCall)]
 	fake.abortArgsForCall = append(fake.abortArgsForCall, struct{}{})

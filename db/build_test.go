@@ -121,7 +121,7 @@ var _ = Describe("Build", func() {
 			build, err = team.CreateOneOffBuild()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = build.Abort()
+			err = build.MarkAsAborted()
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -1148,7 +1148,7 @@ var _ = Describe("Build", func() {
 		})
 	})
 
-	Describe("MarkAsFailed", func() {
+	Describe("FinishWithError", func() {
 		var cause error
 		var build db.Build
 
@@ -1160,7 +1160,7 @@ var _ = Describe("Build", func() {
 
 		JustBeforeEach(func() {
 			cause = errors.New("disaster")
-			err := build.MarkAsFailed(cause)
+			err := build.FinishWithError(cause)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
