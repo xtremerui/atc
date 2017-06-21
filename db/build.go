@@ -27,14 +27,14 @@ const (
 	BuildStatusErrored   BuildStatus = "errored"
 )
 
-var buildsQuery = psql.Select("b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, b.reap_time, j.name, p.id, p.name, t.name, b.nonce").
+var buildsQuery = psql.Select("b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.public_plan, b.start_time, b.end_time, b.reap_time, j.name, p.id, p.name, t.name, b.nonce").
 	From("builds b").
 	JoinClause("LEFT OUTER JOIN jobs j ON b.job_id = j.id").
 	JoinClause("LEFT OUTER JOIN pipelines p ON j.pipeline_id = p.id").
 	JoinClause("LEFT OUTER JOIN teams t ON b.team_id = t.id")
 
 // XXX not something we want to keep
-const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, b.reap_time, j.name as job_name, p.id as pipeline_id, p.name as pipeline_name, t.name as team_name, b.nonce"
+const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.team_id, b.status, b.manually_triggered, b.scheduled, b.engine, b.engine_metadata, b.public_plan, b.start_time, b.end_time, b.reap_time, j.name as job_name, p.id as pipeline_id, p.name as pipeline_name, t.name as team_name, b.nonce"
 
 //go:generate counterfeiter . Build
 
@@ -49,6 +49,7 @@ type Build interface {
 	TeamName() string
 	Engine() string
 	EngineMetadata() string
+	PublicPlan() *json.RawMessage
 	Status() BuildStatus
 	StartTime() time.Time
 	EndTime() time.Time
@@ -107,6 +108,7 @@ type build struct {
 
 	engine         string
 	engineMetadata string
+	publicPlan     *json.RawMessage
 
 	startTime time.Time
 	endTime   time.Time
@@ -118,22 +120,23 @@ type build struct {
 
 var ErrBuildDisappeared = errors.New("build-disappeared-from-db")
 
-func (b *build) ID() int                   { return b.id }
-func (b *build) Name() string              { return b.name }
-func (b *build) JobID() int                { return b.jobID }
-func (b *build) JobName() string           { return b.jobName }
-func (b *build) PipelineID() int           { return b.pipelineID }
-func (b *build) PipelineName() string      { return b.pipelineName }
-func (b *build) TeamID() int               { return b.teamID }
-func (b *build) TeamName() string          { return b.teamName }
-func (b *build) IsManuallyTriggered() bool { return b.isManuallyTriggered }
-func (b *build) Engine() string            { return b.engine }
-func (b *build) EngineMetadata() string    { return b.engineMetadata }
-func (b *build) StartTime() time.Time      { return b.startTime }
-func (b *build) EndTime() time.Time        { return b.endTime }
-func (b *build) ReapTime() time.Time       { return b.reapTime }
-func (b *build) Status() BuildStatus       { return b.status }
-func (b *build) IsScheduled() bool         { return b.scheduled }
+func (b *build) ID() int                      { return b.id }
+func (b *build) Name() string                 { return b.name }
+func (b *build) JobID() int                   { return b.jobID }
+func (b *build) JobName() string              { return b.jobName }
+func (b *build) PipelineID() int              { return b.pipelineID }
+func (b *build) PipelineName() string         { return b.pipelineName }
+func (b *build) TeamID() int                  { return b.teamID }
+func (b *build) TeamName() string             { return b.teamName }
+func (b *build) IsManuallyTriggered() bool    { return b.isManuallyTriggered }
+func (b *build) Engine() string               { return b.engine }
+func (b *build) EngineMetadata() string       { return b.engineMetadata }
+func (b *build) PublicPlan() *json.RawMessage { return b.publicPlan }
+func (b *build) StartTime() time.Time         { return b.startTime }
+func (b *build) EndTime() time.Time           { return b.endTime }
+func (b *build) ReapTime() time.Time          { return b.reapTime }
+func (b *build) Status() BuildStatus          { return b.status }
+func (b *build) IsScheduled() bool            { return b.scheduled }
 
 func (b *build) IsRunning() bool {
 	switch b.status {
@@ -211,13 +214,27 @@ func (b *build) Start(engine, metadata string) (bool, error) {
 
 	defer tx.Rollback()
 
+	// metadata cannot be empty string
+	var plan atc.Plan
+	err = json.Unmarshal([]byte(metadata), &plan)
+	if err != nil {
+		return false, err
+	}
+
+	encryptedMetadata, nonce, err := b.conn.EncryptionStrategy().Encrypt([]byte(metadata))
+	if err != nil {
+		return false, err
+	}
+
 	var startTime time.Time
 
 	err = psql.Update("builds").
 		Set("status", "started").
 		Set("start_time", sq.Expr("now()")).
 		Set("engine", engine).
-		Set("engine_metadata", metadata).
+		Set("engine_metadata", encryptedMetadata).
+		Set("public_plan", plan.Public()).
+		Set("nonce", nonce).
 		Where(sq.Eq{
 			"id":     b.id,
 			"status": "pending",
@@ -279,6 +296,7 @@ func (b *build) Finish(status BuildStatus) error {
 		Set("status", status).
 		Set("end_time", sq.Expr("now()")).
 		Set("completed", true).
+		Set("engine_metadata", nil).
 		Where(sq.Eq{"id": b.id}).
 		Suffix("RETURNING end_time").
 		RunWith(tx).
@@ -951,15 +969,15 @@ func buildEventSeq(buildid int) string {
 
 func scanBuild(b *build, row scannable, encryptionStrategy EncryptionStrategy) error {
 	var (
-		jobID, pipelineID                             sql.NullInt64
-		engine, engineMetadata, jobName, pipelineName sql.NullString
-		startTime, endTime, reapTime                  pq.NullTime
-		nonce                                         sql.NullString
+		jobID, pipelineID                                         sql.NullInt64
+		engine, engineMetadata, jobName, pipelineName, publicPlan sql.NullString
+		startTime, endTime, reapTime                              pq.NullTime
+		nonce                                                     sql.NullString
 
 		status string
 	)
 
-	err := row.Scan(&b.id, &b.name, &jobID, &b.teamID, &status, &b.isManuallyTriggered, &b.scheduled, &engine, &engineMetadata, &startTime, &endTime, &reapTime, &jobName, &pipelineID, &pipelineName, &b.teamName, &nonce)
+	err := row.Scan(&b.id, &b.name, &jobID, &b.teamID, &status, &b.isManuallyTriggered, &b.scheduled, &engine, &engineMetadata, &publicPlan, &startTime, &endTime, &reapTime, &jobName, &pipelineID, &pipelineName, &b.teamName, &nonce)
 	if err != nil {
 		return err
 	}
@@ -977,6 +995,13 @@ func scanBuild(b *build, row scannable, encryptionStrategy EncryptionStrategy) e
 	var noncense *string
 	if nonce.Valid {
 		noncense = &nonce.String
+	}
+
+	if publicPlan.Valid {
+		err = json.Unmarshal([]byte(publicPlan.String), &b.publicPlan)
+		if err != nil {
+			return err
+		}
 	}
 
 	decryptedEngineMetadata, err := encryptionStrategy.Decrypt(string(engineMetadata.String), noncense)

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("AddNonceAndPublicPlanToBuilds", func() {
+var _ = Describe("AddNonceAndPublicPlanToBuilds", func() {
 	var (
 		dbConn   *sql.DB
 		migrator migration.Migrator

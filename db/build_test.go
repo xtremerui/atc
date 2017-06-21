@@ -28,7 +28,7 @@ var _ = Describe("Build", func() {
 		It("updates the model", func() {
 			build, err := team.CreateOneOffBuild()
 			Expect(err).NotTo(HaveOccurred())
-			started, err := build.Start("engine", "metadata")
+			started, err := build.Start("engine", `{"meta":"data"}`)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(started).To(BeTrue())
 
@@ -48,7 +48,7 @@ var _ = Describe("Build", func() {
 			build, err = team.CreateOneOffBuild()
 			Expect(err).NotTo(HaveOccurred())
 
-			started, err := build.Start("engine", "metadata")
+			started, err := build.Start("engine", `{"meta":"data"}`)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(started).To(BeTrue())
 		})
@@ -112,6 +112,13 @@ var _ = Describe("Build", func() {
 			Expect(found).To(BeTrue())
 			Expect(build.Status()).To(Equal(db.BuildStatusSucceeded))
 		})
+
+		It("sets engine metadata to nil", func() {
+			found, err := build.Reload()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found).To(BeTrue())
+			Expect(build.EngineMetadata()).To(BeEmpty())
+		})
 	})
 
 	Describe("Abort", func() {
@@ -145,7 +152,7 @@ var _ = Describe("Build", func() {
 			defer events.Close()
 
 			By("emitting a status event when started")
-			started, err := build.Start("engine", "metadata")
+			started, err := build.Start("engine", `{"meta":"data"}`)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(started).To(BeTrue())
 
@@ -688,7 +695,7 @@ var _ = Describe("Build", func() {
 
 			Context("when the build is started", func() {
 				BeforeEach(func() {
-					started, err := build.Start("some-engine", "some-metadata")
+					started, err := build.Start("some-engine", `{"meta":"data"}`)
 					Expect(started).To(BeTrue())
 					Expect(err).NotTo(HaveOccurred())
 
@@ -776,7 +783,7 @@ var _ = Describe("Build", func() {
 
 				Context("when the build is started", func() {
 					BeforeEach(func() {
-						started, err := build.Start("some-engine", "some-metadata")
+						started, err := build.Start("some-engine", `{"meta":"data"}`)
 						Expect(started).To(BeTrue())
 						Expect(err).NotTo(HaveOccurred())
 

@@ -125,7 +125,7 @@ func (build *execBuild) Metadata() string {
 func (build *execBuild) PublicPlan(lager.Logger) (atc.PublicBuildPlan, error) {
 	return atc.PublicBuildPlan{
 		Schema: execEngineName,
-		Plan:   build.metadata.Plan.Public(),
+		Plan:   build.dbBuild.PublicPlan(),
 	}, nil
 }
 

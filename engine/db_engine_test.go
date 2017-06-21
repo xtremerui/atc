@@ -178,7 +178,7 @@ var _ = Describe("DBEngine", func() {
 				})
 
 				It("marks the build as aborted", func() {
-					Expect(dbBuild.AbortCallCount()).To(Equal(1))
+					Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(1))
 				})
 			})
 
@@ -192,7 +192,7 @@ var _ = Describe("DBEngine", func() {
 				})
 
 				It("marks the build as aborted", func() {
-					Expect(dbBuild.AbortCallCount()).To(Equal(1))
+					Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(1))
 				})
 			})
 
@@ -206,7 +206,7 @@ var _ = Describe("DBEngine", func() {
 				})
 
 				It("does not mark the build as aborted", func() {
-					Expect(dbBuild.AbortCallCount()).To(Equal(0))
+					Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(0))
 				})
 			})
 		})
@@ -241,7 +241,7 @@ var _ = Describe("DBEngine", func() {
 						dbBuild.ReloadReturns(true, nil)
 						dbBuild.EngineReturns("fake-engine-b")
 
-						dbBuild.AbortStub = func() error {
+						dbBuild.MarkAsAbortedStub = func() error {
 							Expect(dbBuild.AcquireTrackingLockCallCount()).To(Equal(1))
 
 							_, interval := dbBuild.AcquireTrackingLockArgsForCall(0)
@@ -265,7 +265,7 @@ var _ = Describe("DBEngine", func() {
 
 						Context("when aborting the db build succeeds", func() {
 							BeforeEach(func() {
-								dbBuild.AbortReturns(nil)
+								dbBuild.MarkAsAbortedReturns(nil)
 							})
 
 							It("succeeds", func() {
@@ -277,7 +277,7 @@ var _ = Describe("DBEngine", func() {
 							})
 
 							It("aborts the build via the db", func() {
-								Expect(dbBuild.AbortCallCount()).To(Equal(1))
+								Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(1))
 							})
 
 							It("aborts the real build", func() {
@@ -289,7 +289,7 @@ var _ = Describe("DBEngine", func() {
 							disaster := errors.New("oh no!")
 
 							BeforeEach(func() {
-								dbBuild.AbortReturns(disaster)
+								dbBuild.MarkAsAbortedReturns(disaster)
 							})
 
 							It("returns the error", func() {
@@ -351,7 +351,7 @@ var _ = Describe("DBEngine", func() {
 					})
 
 					It("aborts the build in the db", func() {
-						Expect(dbBuild.AbortCallCount()).To(Equal(1))
+						Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(1))
 					})
 
 					It("finishes the build in the db so that the aborted event is emitted", func() {
@@ -376,7 +376,7 @@ var _ = Describe("DBEngine", func() {
 					})
 
 					It("aborts the build in the db", func() {
-						Expect(dbBuild.AbortCallCount()).To(Equal(1))
+						Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(1))
 					})
 
 					It("does not finish the build", func() {
@@ -399,7 +399,7 @@ var _ = Describe("DBEngine", func() {
 				})
 
 				It("does not abort the build in the db", func() {
-					Expect(dbBuild.AbortCallCount()).To(Equal(0))
+					Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(0))
 				})
 			})
 
@@ -410,7 +410,7 @@ var _ = Describe("DBEngine", func() {
 
 				Context("when aborting the build in the db succeeds", func() {
 					BeforeEach(func() {
-						dbBuild.AbortReturns(nil)
+						dbBuild.MarkAsAbortedReturns(nil)
 					})
 
 					It("succeeds", func() {
@@ -418,7 +418,7 @@ var _ = Describe("DBEngine", func() {
 					})
 
 					It("aborts the build in the db", func() {
-						Expect(dbBuild.AbortCallCount()).To(Equal(1))
+						Expect(dbBuild.MarkAsAbortedCallCount()).To(Equal(1))
 					})
 
 					It("does not abort the real build", func() {
@@ -431,7 +431,7 @@ var _ = Describe("DBEngine", func() {
 					disaster := errors.New("oh no!")
 
 					BeforeEach(func() {
-						dbBuild.AbortReturns(disaster)
+						dbBuild.MarkAsAbortedReturns(disaster)
 					})
 
 					It("fails", func() {

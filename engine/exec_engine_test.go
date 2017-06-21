@@ -614,6 +614,7 @@ var _ = Describe("ExecEngine", func() {
 
 			var err error
 			dbBuild := new(dbfakes.FakeBuild)
+			dbBuild.PublicPlanReturns(plan.Public())
 			build, err = execEngine.CreateBuild(logger, dbBuild, plan)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -651,7 +652,6 @@ var _ = Describe("ExecEngine", func() {
 		})
 
 		Context("when the build has a get step", func() {
-
 			BeforeEach(func() {
 				dbBuild.EngineMetadataReturns(`{
 							"Plan": {
@@ -708,6 +708,26 @@ var _ = Describe("ExecEngine", func() {
 					BuildName:    "42",
 					Attempt:      "1",
 				}))
+			})
+		})
+
+		Context("when engine metadata is empty", func() {
+			BeforeEach(func() {
+				dbBuild.EngineMetadataReturns("{}")
+
+				fakeDelegate := new(enginefakes.FakeBuildDelegate)
+				fakeDelegateFactory.DelegateReturns(fakeDelegate)
+
+				inputStepFactory := new(execfakes.FakeStepFactory)
+				inputStep := new(execfakes.FakeStep)
+				inputStep.SucceededReturns(true)
+				inputStepFactory.UsingReturns(inputStep)
+				fakeFactory.GetReturns(inputStepFactory)
+			})
+
+			It("does not error", func() {
+				_, err := execEngine.LookupBuild(logger, dbBuild)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

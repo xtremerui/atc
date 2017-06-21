@@ -332,7 +332,7 @@ func (j *job) GetNextPendingBuildBySerialGroup(serialGroups []string) (Build, bo
 	}
 
 	row := j.conn.QueryRow(`
-		SELECT DISTINCT `+qualifiedBuildColumns+`
+		SELECT DISTINCT ON (b.id) `+qualifiedBuildColumns+`
 		FROM builds b
 		INNER JOIN jobs j ON b.job_id = j.id
 		INNER JOIN pipelines p ON j.pipeline_id = p.id
@@ -373,7 +373,7 @@ func (j *job) GetRunningBuildsBySerialGroup(serialGroups []string) ([]Build, err
 	}
 
 	rows, err := j.conn.Query(`
-		SELECT DISTINCT `+qualifiedBuildColumns+`
+		SELECT DISTINCT ON (b.id) `+qualifiedBuildColumns+`
 		FROM builds b
 		INNER JOIN jobs j ON b.job_id = j.id
 		INNER JOIN pipelines p ON j.pipeline_id = p.id
