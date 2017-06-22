@@ -1,4 +1,4 @@
-port module Pipeline exposing (Model, Msg(..), Flags, init, update, view, subscriptions, changeToPipelineAndGroups)
+module Pipeline exposing (Model, Msg(..), Flags, init, update, view, subscriptions, changeToPipelineAndGroups)
 
 import Html exposing (Html)
 import Html.Attributes exposing (class, href, id, style, src, width, height)
@@ -27,10 +27,16 @@ type alias Ports =
     }
 
 
+type Pipeline
+    = PipelineFound Concourse.Pipeline
+    | PipelineWaiting
+    | PipelineNotFound
+
+
 type alias Model =
     { ports : Ports
     , pipelineLocator : Concourse.PipelineIdentifier
-    , pipeline : Maybe Concourse.Pipeline
+    , pipeline : Pipeline
     , fetchedJobs : Maybe Json.Encode.Value
     , fetchedResources : Maybe Json.Encode.Value
     , renderedJobs : Maybe Json.Encode.Value
@@ -79,7 +85,7 @@ init ports flags =
             , concourseVersion = ""
             , turbulenceImgSrc = flags.turbulenceImgSrc
             , pipelineLocator = pipelineLocator
-            , pipeline = Nothing
+            , pipeline = PipelineWaiting
             , fetchedJobs = Nothing
             , fetchedResources = Nothing
             , renderedJobs = Nothing
@@ -136,7 +142,7 @@ update msg model =
             ( model, fetchVersion )
 
         PipelineFetched (Ok pipeline) ->
-            ( { model | pipeline = Just pipeline }
+            ( { model | pipeline = PipelineFound pipeline }
             , Cmd.batch
                 [ fetchJobs model.pipelineLocator
                 , fetchResources model.pipelineLocator
@@ -148,6 +154,8 @@ update msg model =
                 Http.BadStatus { status } ->
                     if status.code == 401 then
                         ( model, LoginRedirect.requestLoginRedirect "" )
+                    else if status.code == 404 then
+                        ( { model | pipeline = PipelineNotFound }, Cmd.none )
                     else
                         ( model, Cmd.none )
 
@@ -200,79 +208,100 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    Html.div []
-        [ Svg.svg
-            [ SvgAttributes.class "pipeline-graph test"
-            , SvgAttributes.width "100%"
-            , SvgAttributes.height "100%"
-            ]
-            []
-        , Html.div
-            [ if model.experiencingTurbulence then
+    let
+        turbulenceClass =
+            if model.experiencingTurbulence then
                 class "error-message"
-              else
+            else
                 class "error-message hidden"
-            ]
-            [ Html.div [ class "message" ]
-                [ Html.img [ src model.turbulenceImgSrc, class "seatbelt" ] []
-                , Html.p [] [ Html.text "experiencing turbulence" ]
-                , Html.p [ class "explanation" ] []
+
+        noPipelineClass =
+            case model.pipeline of
+                PipelineNotFound ->
+                    class "pipeline-not-found"
+
+                _ ->
+                    class "pipeline-not-found hidden"
+    in
+        Html.div []
+            [ Svg.svg
+                [ SvgAttributes.class "pipeline-graph test"
+                , SvgAttributes.width "100%"
+                , SvgAttributes.height "100%"
                 ]
-            ]
-        , Html.dl [ class "legend" ]
-            [ Html.dt [ class "pending" ] []
-            , Html.dd [] [ Html.text "pending" ]
-            , Html.dt [ class "started" ] []
-            , Html.dd [] [ Html.text "started" ]
-            , Html.dt [ class "succeeded" ] []
-            , Html.dd [] [ Html.text "succeeded" ]
-            , Html.dt [ class "failed" ] []
-            , Html.dd [] [ Html.text "failed" ]
-            , Html.dt [ class "errored" ] []
-            , Html.dd [] [ Html.text "errored" ]
-            , Html.dt [ class "aborted" ] []
-            , Html.dd [] [ Html.text "aborted" ]
-            , Html.dt [ class "paused" ] []
-            , Html.dd [] [ Html.text "paused" ]
-            , Html.dt [ class "dotted" ] [ Html.text "." ]
-            , Html.dd [] [ Html.text "dependency" ]
-            , Html.dt [ class "solid" ] [ Html.text "-" ]
-            , Html.dd [] [ Html.text "dependency (trigger)" ]
-            ]
-        , Html.table [ class "lower-right-info" ]
-            [ Html.tr []
-                [ Html.td [ class "label" ] [ Html.text "cli:" ]
-                , Html.td []
-                    [ Html.ul [ class "cli-downloads" ]
-                        [ Html.li []
-                            [ Html.a
-                                [ href (Concourse.Cli.downloadUrl "amd64" "darwin"), ariaLabel "Download OS X CLI" ]
-                                [ Html.i [ class "fa fa-apple" ] [] ]
+                []
+            , Html.div
+                [ turbulenceClass
+                ]
+                [ Html.div [ class "message" ]
+                    [ Html.img [ src model.turbulenceImgSrc, class "seatbelt" ] []
+                    , Html.p [] [ Html.text "experiencing turbulence" ]
+                    , Html.p [ class "explanation" ] []
+                    ]
+                ]
+            , Html.div
+                [ noPipelineClass
+                ]
+                [ Html.div [ class "message" ]
+                    [ Html.img [ src model.turbulenceImgSrc, class "seatbelt" ] []
+                    , Html.p [] [ Html.text "pipeline not found" ]
+                    , Html.p [ class "explanation" ] []
+                    ]
+                ]
+            , Html.dl [ class "legend" ]
+                [ Html.dt [ class "pending" ] []
+                , Html.dd [] [ Html.text "pending" ]
+                , Html.dt [ class "started" ] []
+                , Html.dd [] [ Html.text "started" ]
+                , Html.dt [ class "succeeded" ] []
+                , Html.dd [] [ Html.text "succeeded" ]
+                , Html.dt [ class "failed" ] []
+                , Html.dd [] [ Html.text "failed" ]
+                , Html.dt [ class "errored" ] []
+                , Html.dd [] [ Html.text "errored" ]
+                , Html.dt [ class "aborted" ] []
+                , Html.dd [] [ Html.text "aborted" ]
+                , Html.dt [ class "paused" ] []
+                , Html.dd [] [ Html.text "paused" ]
+                , Html.dt [ class "dotted" ] [ Html.text "." ]
+                , Html.dd [] [ Html.text "dependency" ]
+                , Html.dt [ class "solid" ] [ Html.text "-" ]
+                , Html.dd [] [ Html.text "dependency (trigger)" ]
+                ]
+            , Html.table [ class "lower-right-info" ]
+                [ Html.tr []
+                    [ Html.td [ class "label" ] [ Html.text "cli:" ]
+                    , Html.td []
+                        [ Html.ul [ class "cli-downloads" ]
+                            [ Html.li []
+                                [ Html.a
+                                    [ href (Concourse.Cli.downloadUrl "amd64" "darwin"), ariaLabel "Download OS X CLI" ]
+                                    [ Html.i [ class "fa fa-apple" ] [] ]
+                                ]
+                            , Html.li []
+                                [ Html.a
+                                    [ href (Concourse.Cli.downloadUrl "amd64" "windows"), ariaLabel "Download Windows CLI" ]
+                                    [ Html.i [ class "fa fa-windows" ] [] ]
+                                ]
+                            , Html.li []
+                                [ Html.a
+                                    [ href (Concourse.Cli.downloadUrl "amd64" "linux"), ariaLabel "Download Linux CLI" ]
+                                    [ Html.i [ class "fa fa-linux" ] [] ]
+                                ]
                             ]
-                        , Html.li []
-                            [ Html.a
-                                [ href (Concourse.Cli.downloadUrl "amd64" "windows"), ariaLabel "Download Windows CLI" ]
-                                [ Html.i [ class "fa fa-windows" ] [] ]
-                            ]
-                        , Html.li []
-                            [ Html.a
-                                [ href (Concourse.Cli.downloadUrl "amd64" "linux"), ariaLabel "Download Linux CLI" ]
-                                [ Html.i [ class "fa fa-linux" ] [] ]
+                        ]
+                    ]
+                , Html.tr []
+                    [ Html.td [ class "label" ] [ Html.text "version:" ]
+                    , Html.td []
+                        [ Html.div [ id "concourse-version" ]
+                            [ Html.text "v"
+                            , Html.span [ class "number" ] [ Html.text model.concourseVersion ]
                             ]
                         ]
                     ]
                 ]
-            , Html.tr []
-                [ Html.td [ class "label" ] [ Html.text "version:" ]
-                , Html.td []
-                    [ Html.div [ id "concourse-version" ]
-                        [ Html.text "v"
-                        , Html.span [ class "number" ] [ Html.text model.concourseVersion ]
-                        ]
-                    ]
-                ]
             ]
-        ]
 
 
 autoupdateVersionTimer : Sub Msg
@@ -319,12 +348,15 @@ filterJobs model value =
 
 activeGroups : Model -> List String
 activeGroups model =
-    case ( model.selectedGroups, model.pipeline |> Maybe.andThen (List.head << .groups) ) of
-        ( [], Just firstGroup ) ->
-            [ firstGroup.name ]
+    if not <| List.isEmpty model.selectedGroups then
+        model.selectedGroups
+    else
+        case model.pipeline of
+            PipelineFound pipeline ->
+                List.head pipeline.groups |> Maybe.map (\group -> [ group.name ]) |> Maybe.withDefault model.selectedGroups
 
-        ( groups, _ ) ->
-            groups
+            _ ->
+                model.selectedGroups
 
 
 renderIfNeeded : Model -> ( Model, Cmd Msg )

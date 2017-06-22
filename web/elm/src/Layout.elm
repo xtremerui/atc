@@ -127,29 +127,30 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NewUrl url ->
-            ( model, Navigation.newUrl url )
+            ( Debug.log "newurl" model, Navigation.newUrl url )
 
         ModifyUrl url ->
-            ( model, Navigation.modifyUrl url )
+            ( Debug.log "modifyurl" model, Navigation.modifyUrl url )
 
         RouteChanged route ->
-            urlUpdate route model
+            urlUpdate route <| Debug.log "routechanged" model
 
         TopMsg _ TopBar.ToggleSidebar ->
-            ( { model
-                | sidebarVisible = not model.sidebarVisible
-              }
+            ( Debug.log "topmsg"
+                { model
+                    | sidebarVisible = not model.sidebarVisible
+                }
             , Cmd.none
             )
 
         SaveToken tokenValue ->
-            ( model, saveToken (tokenValue) )
+            ( Debug.log "savetoken" model, saveToken (tokenValue) )
 
         LoadToken ->
-            ( model, loadToken () )
+            ( Debug.log "loadtoken" model, loadToken () )
 
         TokenReceived Nothing ->
-            ( model, Cmd.none )
+            ( Debug.log "tokenreceived nothing" model, Cmd.none )
 
         TokenReceived (Just tokenValue) ->
             let
@@ -159,11 +160,12 @@ update msg model =
                 ( newSideModel, sideCmd ) =
                     SideBar.update (SideBar.NewCSRFToken tokenValue) model.sideModel
             in
-                ( { model
-                    | csrfToken = tokenValue
-                    , subModel = newSubModel
-                    , sideModel = newSideModel
-                  }
+                ( Debug.log "tokenreceived"
+                    { model
+                        | csrfToken = tokenValue
+                        , subModel = newSubModel
+                        , sideModel = newSideModel
+                    }
                 , Cmd.batch
                     [ Cmd.map (SubMsg anyNavIndex) subCmd
                     , Cmd.map (SideMsg anyNavIndex) sideCmd
@@ -181,11 +183,12 @@ update msg model =
                 ( sideModel, sideCmd ) =
                     SideBar.update (SideBar.NewCSRFToken val.csrfToken) model.sideModel
             in
-                ( { model
-                    | subModel = subModel
-                    , sideModel = sideModel
-                    , csrfToken = val.csrfToken
-                  }
+                ( Debug.log "submsg login"
+                    { model
+                        | subModel = subModel
+                        , sideModel = sideModel
+                        , csrfToken = val.csrfToken
+                    }
                 , Cmd.batch
                     [ layoutCmd
                     , Cmd.map (SideMsg anyNavIndex) sideCmd
@@ -222,10 +225,11 @@ update msg model =
                                     (TopBar.FetchPipeline { teamName = p.teamName, pipelineName = p.name })
                                     model.topModel
                         in
-                            ( { model
-                                | subModel = subModel
-                                , topModel = topModel
-                              }
+                            ( Debug.log "submsg pipelinesfetched"
+                                { model
+                                    | subModel = subModel
+                                    , topModel = topModel
+                                }
                             , Cmd.batch
                                 [ Cmd.map (SubMsg navIndex) subCmd
                                 , Cmd.map (TopMsg navIndex) topCmd
@@ -239,7 +243,7 @@ update msg model =
                     ( subModel, subCmd ) =
                         SubPage.update model.turbulenceImgSrc model.csrfToken m model.subModel
                 in
-                    ( { model | subModel = subModel }, Cmd.map (SubMsg navIndex) subCmd )
+                    ( Debug.log "submsg other" { model | subModel = subModel }, Cmd.map (SubMsg navIndex) subCmd )
             else
                 ( model, Cmd.none )
 
@@ -249,7 +253,7 @@ update msg model =
                     ( topModel, topCmd ) =
                         TopBar.update m model.topModel
                 in
-                    ( { model | topModel = topModel }, Cmd.map (TopMsg navIndex) topCmd )
+                    ( Debug.log "topmsg" { model | topModel = topModel }, Cmd.map (TopMsg navIndex) topCmd )
             else
                 ( model, Cmd.none )
 
@@ -259,12 +263,12 @@ update msg model =
                     ( sideModel, sideCmd ) =
                         SideBar.update m model.sideModel
                 in
-                    ( { model | sideModel = sideModel }, Cmd.map (SideMsg navIndex) sideCmd )
+                    ( Debug.log "sidemsg" { model | sideModel = sideModel }, Cmd.map (SideMsg navIndex) sideCmd )
             else
                 ( model, Cmd.none )
 
         Noop ->
-            ( model, Cmd.none )
+            ( Debug.log "noop" model, Cmd.none )
 
 
 validNavIndex : NavIndex -> NavIndex -> Bool
