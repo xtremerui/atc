@@ -48,7 +48,7 @@ func (engine *dbEngine) CreateBuild(logger lager.Logger, build db.Build, plan at
 		return nil, err
 	}
 
-	started, err := build.Start(buildEngine.Name(), createdBuild.Metadata())
+	started, err := build.Start(buildEngine.Name(), createdBuild.Metadata(), plan)
 	if err != nil {
 		return nil, err
 	}
@@ -99,22 +99,6 @@ type dbBuild struct {
 
 func (build *dbBuild) Metadata() string {
 	return strconv.Itoa(build.build.ID())
-}
-
-func (build *dbBuild) PublicPlan(logger lager.Logger) (atc.PublicBuildPlan, error) {
-	buildEngineName := build.build.Engine()
-	buildEngine, found := build.engines.Lookup(buildEngineName)
-	if !found {
-		logger.Error("unknown-engine", nil, lager.Data{"engine": buildEngineName})
-		return atc.PublicBuildPlan{}, UnknownEngineError{buildEngineName}
-	}
-
-	engineBuild, err := buildEngine.LookupBuild(logger, build.build)
-	if err != nil {
-		return atc.PublicBuildPlan{}, err
-	}
-
-	return engineBuild.PublicPlan(logger)
 }
 
 func (build *dbBuild) Abort(logger lager.Logger) error {

@@ -65,7 +65,7 @@ type Build interface {
 	AcquireTrackingLock(logger lager.Logger, interval time.Duration) (lock.Lock, bool, error)
 	Preparation() (BuildPreparation, bool, error)
 
-	Start(string, string) (bool, error)
+	Start(string, string, atc.Plan) (bool, error)
 	FinishWithError(cause error) error
 	Finish(BuildStatus) error
 
@@ -206,20 +206,13 @@ func (b *build) SetInterceptible(i bool) error {
 
 }
 
-func (b *build) Start(engine, metadata string) (bool, error) {
+func (b *build) Start(engine, metadata string, plan atc.Plan) (bool, error) {
 	tx, err := b.conn.Begin()
 	if err != nil {
 		return false, err
 	}
 
 	defer tx.Rollback()
-
-	// metadata cannot be empty string
-	var plan atc.Plan
-	err = json.Unmarshal([]byte(metadata), &plan)
-	if err != nil {
-		return false, err
-	}
 
 	encryptedMetadata, nonce, err := b.conn.EncryptionStrategy().Encrypt([]byte(metadata))
 	if err != nil {
@@ -297,6 +290,7 @@ func (b *build) Finish(status BuildStatus) error {
 		Set("end_time", sq.Expr("now()")).
 		Set("completed", true).
 		Set("engine_metadata", nil).
+		Set("nonce", nil).
 		Where(sq.Eq{"id": b.id}).
 		Suffix("RETURNING end_time").
 		RunWith(tx).
@@ -995,6 +989,13 @@ func scanBuild(b *build, row scannable, encryptionStrategy EncryptionStrategy) e
 	var noncense *string
 	if nonce.Valid {
 		noncense = &nonce.String
+		decryptedEngineMetadata, err := encryptionStrategy.Decrypt(string(engineMetadata.String), noncense)
+		if err != nil {
+			return err
+		}
+		b.engineMetadata = string(decryptedEngineMetadata)
+	} else {
+		b.engineMetadata = engineMetadata.String
 	}
 
 	if publicPlan.Valid {
@@ -1003,12 +1004,6 @@ func scanBuild(b *build, row scannable, encryptionStrategy EncryptionStrategy) e
 			return err
 		}
 	}
-
-	decryptedEngineMetadata, err := encryptionStrategy.Decrypt(string(engineMetadata.String), noncense)
-	if err != nil {
-		return err
-	}
-	b.engineMetadata = string(decryptedEngineMetadata)
 
 	return nil
 }

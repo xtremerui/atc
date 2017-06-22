@@ -226,11 +226,12 @@ type FakeBuild struct {
 		result2 bool
 		result3 error
 	}
-	StartStub        func(string, string) (bool, error)
+	StartStub        func(string, string, atc.Plan) (bool, error)
 	startMutex       sync.RWMutex
 	startArgsForCall []struct {
 		arg1 string
 		arg2 string
+		arg3 atc.Plan
 	}
 	startReturns struct {
 		result1 bool
@@ -1332,17 +1333,18 @@ func (fake *FakeBuild) PreparationReturnsOnCall(i int, result1 db.BuildPreparati
 	}{result1, result2, result3}
 }
 
-func (fake *FakeBuild) Start(arg1 string, arg2 string) (bool, error) {
+func (fake *FakeBuild) Start(arg1 string, arg2 string, arg3 atc.Plan) (bool, error) {
 	fake.startMutex.Lock()
 	ret, specificReturn := fake.startReturnsOnCall[len(fake.startArgsForCall)]
 	fake.startArgsForCall = append(fake.startArgsForCall, struct {
 		arg1 string
 		arg2 string
-	}{arg1, arg2})
-	fake.recordInvocation("Start", []interface{}{arg1, arg2})
+		arg3 atc.Plan
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("Start", []interface{}{arg1, arg2, arg3})
 	fake.startMutex.Unlock()
 	if fake.StartStub != nil {
-		return fake.StartStub(arg1, arg2)
+		return fake.StartStub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -1356,10 +1358,10 @@ func (fake *FakeBuild) StartCallCount() int {
 	return len(fake.startArgsForCall)
 }
 
-func (fake *FakeBuild) StartArgsForCall(i int) (string, string) {
+func (fake *FakeBuild) StartArgsForCall(i int) (string, string, atc.Plan) {
 	fake.startMutex.RLock()
 	defer fake.startMutex.RUnlock()
-	return fake.startArgsForCall[i].arg1, fake.startArgsForCall[i].arg2
+	return fake.startArgsForCall[i].arg1, fake.startArgsForCall[i].arg2, fake.startArgsForCall[i].arg3
 }
 
 func (fake *FakeBuild) StartReturns(result1 bool, result2 error) {

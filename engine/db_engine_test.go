@@ -1,7 +1,6 @@
 package engine_test
 
 import (
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -103,7 +102,7 @@ var _ = Describe("DBEngine", func() {
 			It("starts the build in the database", func() {
 				Expect(dbBuild.StartCallCount()).To(Equal(1))
 
-				engine, metadata := dbBuild.StartArgsForCall(0)
+				engine, metadata, _ := dbBuild.StartArgsForCall(0)
 				Expect(engine).To(Equal("fake-engine-a"))
 				Expect(metadata).To(Equal("some-metadata"))
 			})
@@ -690,124 +689,6 @@ var _ = Describe("DBEngine", func() {
 
 				It("does not look up the build", func() {
 					Expect(dbBuild.ReloadCallCount()).To(BeZero())
-					Expect(fakeEngineB.LookupBuildCallCount()).To(BeZero())
-				})
-			})
-		})
-
-		Describe("PublicPlan", func() {
-			var logger lager.Logger
-
-			var publicPlan atc.PublicBuildPlan
-			var publicPlanErr error
-
-			BeforeEach(func() {
-				logger = lagertest.NewTestLogger("test")
-			})
-
-			JustBeforeEach(func() {
-				publicPlan, publicPlanErr = build.PublicPlan(logger)
-			})
-
-			var fakeLock *lockfakes.FakeLock
-
-			BeforeEach(func() {
-				fakeLock = new(lockfakes.FakeLock)
-				dbBuild.AcquireTrackingLockReturns(fakeLock, true, nil)
-			})
-
-			Context("when the build is active", func() {
-				BeforeEach(func() {
-					dbBuild.EngineReturns("fake-engine-b")
-					dbBuild.ReloadReturns(true, nil)
-				})
-
-				Context("when the engine build exists", func() {
-					var realBuild *enginefakes.FakeBuild
-
-					BeforeEach(func() {
-						realBuild = new(enginefakes.FakeBuild)
-
-						fakeEngineB.LookupBuildReturns(realBuild, nil)
-					})
-
-					Context("when getting the plan via the engine succeeds", func() {
-						BeforeEach(func() {
-							var plan json.RawMessage = []byte("lol")
-
-							realBuild.PublicPlanReturns(atc.PublicBuildPlan{
-								Schema: "some-schema",
-								Plan:   &plan,
-							}, nil)
-						})
-
-						It("succeeds", func() {
-							Expect(publicPlanErr).ToNot(HaveOccurred())
-						})
-
-						It("returns the public plan from the engine", func() {
-							var plan json.RawMessage = []byte("lol")
-
-							Expect(publicPlan).To(Equal(atc.PublicBuildPlan{
-								Schema: "some-schema",
-								Plan:   &plan,
-							}))
-						})
-					})
-
-					Context("when getting the plan via the engine fails", func() {
-						disaster := errors.New("nope")
-
-						BeforeEach(func() {
-							realBuild.PublicPlanReturns(atc.PublicBuildPlan{}, disaster)
-						})
-
-						It("returns the error", func() {
-							Expect(publicPlanErr).To(Equal(disaster))
-						})
-					})
-				})
-
-				Context("when looking up the engine build fails", func() {
-					disaster := errors.New("nope")
-
-					BeforeEach(func() {
-						fakeEngineB.LookupBuildReturns(nil, disaster)
-					})
-
-					It("returns the error", func() {
-						Expect(publicPlanErr).To(Equal(disaster))
-					})
-				})
-			})
-
-			Context("when the build's engine is unknown", func() {
-				BeforeEach(func() {
-					dbBuild.EngineReturns("bogus")
-				})
-
-				It("returns an UnknownEngineError", func() {
-					Expect(publicPlanErr).To(Equal(UnknownEngineError{"bogus"}))
-				})
-			})
-
-			Context("when the build is not yet active", func() {
-				BeforeEach(func() {
-					dbBuild.ReloadReturns(true, nil)
-					dbBuild.EngineReturns("")
-				})
-
-				It("does not look up the build in the engine", func() {
-					Expect(fakeEngineB.LookupBuildCallCount()).To(BeZero())
-				})
-			})
-
-			Context("when the build is no longer in the database", func() {
-				BeforeEach(func() {
-					dbBuild.ReloadReturns(false, nil)
-				})
-
-				It("does not look up the build in the engine", func() {
 					Expect(fakeEngineB.LookupBuildCallCount()).To(BeZero())
 				})
 			})
