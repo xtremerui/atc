@@ -144,7 +144,7 @@ func (c *containerCollector) markHijackedContainerAsDestroying(
 	hijackedContainer db.CreatedContainer,
 	workerClient worker.Client,
 ) (db.DestroyingContainer, error) {
-	gardenContainer, found, err := workerClient.FindContainerByHandle(logger, 0, hijackedContainer.Handle()) // XXX: team ID
+	gardenContainer, found, err := workerClient.FindContainerByHandle(logger, hijackedContainer.TeamID(), hijackedContainer.Handle())
 	if err != nil {
 		logger.Error("failed-to-lookup-garden-container", err)
 		return nil, err
@@ -181,7 +181,7 @@ func (c *containerCollector) tryToDestroyContainer(logger lager.Logger, containe
 	logger.Debug("start")
 	defer logger.Debug("done")
 
-	gardenContainer, found, err := workerClient.FindContainerByHandle(logger, 0, container.Handle()) // XXX: team ID
+	gardenContainer, found, err := workerClient.FindContainerByHandle(logger, container.TeamID(), container.Handle())
 	if err != nil {
 		logger.Error("failed-to-lookup-container-in-garden", err)
 		return
