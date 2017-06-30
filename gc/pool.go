@@ -48,17 +48,22 @@ func NewWorkerPool(logger lager.Logger, workerPool worker.Client, maxJobsPerWork
 }
 
 func (pool *WorkerPool) Queue(logger lager.Logger, workerName string, job Job) {
-	if !pool.startJob(workerName) {
-		logger.Debug("failed-to-start-job-on-worker", lager.Data{"worker-name": workerName})
-		// drop the job on the floor; it'll be queued up again later
-		return
-	}
+	logger = logger.Session("queue", lager.Data{
+		"worker-name": workerName,
+	})
 
 	pool.workersL.Lock()
 	workerClient, found := pool.workers[workerName]
 	pool.workersL.Unlock()
 
 	if !found {
+		// drop the job on the floor; it'll be queued up again later
+		logger.Info("worker-not-found")
+		return
+	}
+
+	if !pool.startJob(workerName) {
+		logger.Debug("job-limit-reached")
 		// drop the job on the floor; it'll be queued up again later
 		return
 	}
