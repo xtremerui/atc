@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/lager"
+
 	"github.com/concourse/atc/worker"
 )
 
@@ -28,19 +30,23 @@ func (f JobFunc) Run(workerClient worker.Worker) {
 	f(workerClient)
 }
 
-func NewWorkerPool(workerPool worker.Client, maxJobsPerWorker int) *WorkerPool {
+func NewWorkerPool(logger lager.Logger, workerPool worker.Client, maxJobsPerWorker int) *WorkerPool {
 	pool := &WorkerPool{
 		workerPool:       workerPool,
 		maxJobsPerWorker: maxJobsPerWorker,
+
+		workersL:    &sync.Mutex{},
+		workerJobsL: &sync.Mutex{},
 	}
 
-	go pool.syncWorkersLoop()
+	go pool.syncWorkersLoop(logger)
 
 	return pool
 }
 
-func (pool *WorkerPool) Queue(workerName string, job Job) {
+func (pool *WorkerPool) Queue(logger lager.Logger, workerName string, job Job) {
 	if !pool.startJob(workerName) {
+		logger.Debug("failed-to-start-job-on-worker", lager.Data{"worker-name": workerName})
 		// drop the job on the floor; it'll be queued up again later
 		return
 	}
@@ -79,23 +85,23 @@ func (pool *WorkerPool) finishJob(workerName string) {
 	pool.workerJobsL.Unlock()
 }
 
-func (pool *WorkerPool) syncWorkersLoop() {
-	pool.syncWorkers()
+func (pool *WorkerPool) syncWorkersLoop(logger lager.Logger) {
+	pool.syncWorkers(logger)
 
 	ticker := time.NewTicker(30 * time.Second) // XXX: parameterize same as default worker TTL (...which might actually live on the worker side...)
 
 	for {
 		select {
 		case <-ticker.C:
-			pool.syncWorkers()
+			pool.syncWorkers(logger)
 		}
 	}
 }
 
-func (pool *WorkerPool) syncWorkers() {
-	workers, err := pool.workerPool.RunningWorkers(nil) // XXX: logger
+func (pool *WorkerPool) syncWorkers(logger lager.Logger) {
+	workers, err := pool.workerPool.RunningWorkers(logger)
 	if err != nil {
-		// XXX: log
+		logger.Error("failed-to-get-running-workers", err)
 		return
 	}
 

@@ -517,7 +517,7 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 				gc.NewContainerCollector(
 					logger.Session("container-collector"),
 					dbContainerFactory,
-					gc.NewWorkerPool(workerClient, 5),
+					gc.NewWorkerPool(logger.Session("worker-pool"), workerClient, 5),
 				),
 				gc.NewResourceConfigCheckSessionCollector(
 					logger.Session("resource-config-check-session-collector"),

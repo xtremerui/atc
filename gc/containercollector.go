@@ -89,7 +89,7 @@ func (c *containerCollector) Run() error {
 	}
 
 	for _, createdContainer := range createdContainers {
-		c.workerPool.Queue(createdContainer.WorkerName(), JobFunc(func(workerClient worker.Worker) {
+		c.workerPool.Queue(logger, createdContainer.WorkerName(), JobFunc(func(workerClient worker.Worker) {
 			var destroyingContainer db.DestroyingContainer
 			var cLog lager.Logger
 
@@ -126,7 +126,7 @@ func (c *containerCollector) Run() error {
 	}
 
 	for _, destroyingContainer := range destroyingContainers {
-		c.workerPool.Queue(destroyingContainer.WorkerName(), JobFunc(func(workerClient worker.Worker) {
+		c.workerPool.Queue(logger, destroyingContainer.WorkerName(), JobFunc(func(workerClient worker.Worker) {
 			cLog := logger.Session("destroy-container", lager.Data{
 				"container": destroyingContainer.Handle(),
 				"worker":    workerClient.Name(),
