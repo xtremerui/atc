@@ -89,7 +89,11 @@ func (pool *WorkerPool) startJob(workerName string) bool {
 
 func (pool *WorkerPool) finishJob(workerName string) {
 	pool.workerJobsL.Lock()
-	pool.workerJobs[workerName]--
+	if pool.workerJobs[workerName] == 1 {
+		delete(pool.workerJobs, workerName)
+	} else {
+		pool.workerJobs[workerName]--
+	}
 	pool.workerJobsL.Unlock()
 }
 
