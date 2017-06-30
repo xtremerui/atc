@@ -35,7 +35,10 @@ func NewWorkerPool(logger lager.Logger, workerPool worker.Client, maxJobsPerWork
 		workerPool:       workerPool,
 		maxJobsPerWorker: maxJobsPerWorker,
 
-		workersL:    &sync.Mutex{},
+		workers:  map[string]worker.Worker{},
+		workersL: &sync.Mutex{},
+
+		workerJobs:  map[string]int{},
 		workerJobsL: &sync.Mutex{},
 	}
 
