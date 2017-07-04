@@ -174,4 +174,5 @@ var Migrations = []migration.Migrator{
 	AddBuildImageResourceCaches,
 	AddNonceAndPublicPlanToBuilds,
 	AddWorkerTaskCaches,
+	AddPipelineIdToBuilds,
 }
