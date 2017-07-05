@@ -336,4 +336,31 @@ var _ = DescribeTable("Input resolving",
 			},
 		},
 	}),
+
+	FEntry("18f wrong inputs", Example{
+		LoadDB: "testdata/18f.json.gz",
+
+		Inputs: Inputs{
+			{Name: "master-bosh-root-cert", Resource: "master-bosh-root-cert"},
+			{Name: "pipeline-tasks", Resource: "pipeline-tasks"},
+			{Name: "shibboleth-config", Resource: "shibboleth-config"},
+			{Name: "common", Resource: "common-staging"},
+			{Name: "terraform-yaml", Resource: "terraform-yaml-staging"},
+			{Name: "cg-s3-shibboleth-release", Resource: "cg-s3-shibboleth-release"},
+			{Name: "shibboleth-stemcell", Resource: "shibboleth-stemcell"},
+		},
+
+		Result: Result{
+			OK: true,
+			Values: map[string]string{
+				"terraform-yaml":           "imported-r1083v185643",
+				"cg-s3-shibboleth-release": "imported-r698v173353",
+				"shibboleth-stemcell":      "imported-r697v206634",
+				"master-bosh-root-cert":    "imported-r893v206635",
+				"pipeline-tasks":           "imported-r700v173842",
+				"shibboleth-config":        "imported-r696v206712",
+				"common":                   "imported-r695v198411",
+			},
+		},
+	}),
 )
