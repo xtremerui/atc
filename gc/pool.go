@@ -4,17 +4,20 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/garden"
 	"code.cloudfoundry.org/lager"
 
 	"github.com/concourse/atc/worker"
+	"github.com/concourse/baggageclaim"
 )
 
 type WorkerPool struct {
-	workerPool       worker.Client
+	workerProvider   worker.Provider
 	maxJobsPerWorker int
 
-	workers  map[string]worker.Worker
-	workersL *sync.Mutex
+	workerGardenClients       map[string]garden.Client
+	workerBaggageclaimClients map[string]baggageclaim.Client
+	workersL                  *sync.Mutex
 
 	workerJobs  map[string]int
 	workerJobsL *sync.Mutex

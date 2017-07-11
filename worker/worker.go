@@ -161,6 +161,10 @@ func (worker *gardenWorker) FindVolumeForTaskCache(logger lager.Logger, teamID i
 	return worker.volumeClient.FindVolumeForTaskCache(logger, teamID, jobID, stepName, path)
 }
 
+func (worker *gardenWorker) LookupContainer(logger lager.Logger, handle string) (Container, bool, error) {
+	return worker.gardenClient.Lookup(logger, handle)
+}
+
 func (worker *gardenWorker) LookupVolume(logger lager.Logger, handle string) (Volume, bool, error) {
 	return worker.volumeClient.LookupVolume(logger, handle)
 }

@@ -89,30 +89,33 @@ func (c *containerCollector) Run() error {
 	}
 
 	for _, createdContainer := range createdContainers {
-		c.workerPool.Queue(logger, createdContainer.WorkerName(), JobFunc(func(workerClient worker.Worker) {
+		// prevent closure from capturing last value of loop
+		container := createdContainer
+
+		c.workerPool.Queue(logger, container.WorkerName(), JobFunc(func(workerClient worker.Worker) {
 			var destroyingContainer db.DestroyingContainer
 			var cLog lager.Logger
 
-			if createdContainer.IsHijacked() {
+			if container.IsHijacked() {
 				cLog = logger.Session("mark-hijacked-container", lager.Data{
-					"container": createdContainer.Handle(),
+					"container": container.Handle(),
 					"worker":    workerClient.Name(),
 				})
 
 				var err error
-				destroyingContainer, err = c.markHijackedContainerAsDestroying(cLog, createdContainer, workerClient)
+				destroyingContainer, err = c.markHijackedContainerAsDestroying(cLog, container, workerClient)
 				if err != nil {
 					cLog.Error("failed-to-transition", err)
 					return
 				}
 			} else {
 				cLog = logger.Session("mark-created-as-destroying", lager.Data{
-					"container": createdContainer.Handle(),
+					"container": container.Handle(),
 					"worker":    workerClient.Name(),
 				})
 
 				var err error
-				destroyingContainer, err = createdContainer.Destroying()
+				destroyingContainer, err = container.Destroying()
 				if err != nil {
 					cLog.Error("failed-to-transition", err)
 					return
@@ -126,13 +129,16 @@ func (c *containerCollector) Run() error {
 	}
 
 	for _, destroyingContainer := range destroyingContainers {
-		c.workerPool.Queue(logger, destroyingContainer.WorkerName(), JobFunc(func(workerClient worker.Worker) {
+		// prevent closure from capturing last value of loop
+		container := destroyingContainer
+
+		c.workerPool.Queue(logger, container.WorkerName(), JobFunc(func(workerClient worker.Worker) {
 			cLog := logger.Session("destroy-container", lager.Data{
-				"container": destroyingContainer.Handle(),
+				"container": container.Handle(),
 				"worker":    workerClient.Name(),
 			})
 
-			c.tryToDestroyContainer(cLog, destroyingContainer, workerClient)
+			c.tryToDestroyContainer(cLog, container, workerClient)
 		}))
 	}
 

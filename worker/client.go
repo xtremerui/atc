@@ -26,9 +26,14 @@ type Client interface {
 		creds.VersionedResourceTypes,
 	) (Container, error)
 
+
 	FindContainerByHandle(lager.Logger, int, string) (Container, bool, error)
-	FindResourceTypeByPath(path string) (atc.WorkerResourceType, bool)
+	DestroyContainer(lager.Logger, handle string) error
+
 	LookupVolume(lager.Logger, string) (Volume, bool, error)
+	DestroyVolume(lager.Logger, handle string) error
+
+	FindResourceTypeByPath(path string) (atc.WorkerResourceType, bool)
 
 	Satisfying(lager.Logger, WorkerSpec, creds.VersionedResourceTypes) (Worker, error)
 	AllSatisfying(lager.Logger, WorkerSpec, creds.VersionedResourceTypes) ([]Worker, error)
