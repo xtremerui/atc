@@ -2,33 +2,36 @@ package gc_test
 
 import (
 	"errors"
-	"time"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/db"
 	"github.com/concourse/atc/gc"
 	"github.com/concourse/atc/gc/gcfakes"
+	"github.com/concourse/atc/worker/workerfakes"
 	"github.com/concourse/baggageclaim/baggageclaimfakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("VolumeCollector", func() {
+var _ = FDescribe("VolumeCollector", func() {
 	var (
 		volumeCollector gc.Collector
+		fakeJobRunner   *gcfakes.FakeWorkerJobRunner
 
-		volumeFactory          db.VolumeFactory
-		containerFactory       db.ContainerFactory
-		workerFactory          db.WorkerFactory
-		fakeBCVolume           *baggageclaimfakes.FakeVolume
+		volumeFactory      db.VolumeFactory
+		containerFactory   db.ContainerFactory
+		fakeBCVolume       *baggageclaimfakes.FakeVolume
+		createdVolume      db.CreatedVolume
+		creatingContainer1 db.CreatingContainer
+		creatingContainer2 db.CreatingContainer
+		team               db.Team
+		worker             db.Worker
+
+		fakeWorker             *workerfakes.FakeWorker
 		fakeBaggageclaimClient *baggageclaimfakes.FakeClient
-		createdVolume          db.CreatedVolume
-		creatingContainer1     db.CreatingContainer
-		creatingContainer2     db.CreatingContainer
-		team                   db.Team
-		worker                 db.Worker
 	)
 
 	BeforeEach(func() {
@@ -36,21 +39,25 @@ var _ = Describe("VolumeCollector", func() {
 
 		containerFactory = db.NewContainerFactory(dbConn)
 		volumeFactory = db.NewVolumeFactory(dbConn)
-		workerFactory = db.NewWorkerFactory(dbConn)
 
 		fakeBaggageclaimClient = new(baggageclaimfakes.FakeClient)
-		fakeBaggageclaimClientFactory := new(gcfakes.FakeBaggageclaimClientFactory)
-		fakeBaggageclaimClientFactory.NewClientReturns(fakeBaggageclaimClient)
 
 		fakeBCVolume = new(baggageclaimfakes.FakeVolume)
+
+		fakeWorker = new(workerfakes.FakeWorker)
 		fakeBaggageclaimClient.LookupVolumeReturns(fakeBCVolume, true, nil)
+		fakeWorker.BaggageclaimClientReturns(fakeBaggageclaimClient)
+
+		fakeJobRunner = new(gcfakes.FakeWorkerJobRunner)
+		fakeJobRunner.TryStub = func(logger lager.Logger, workerName string, job gc.Job) {
+			job.Run(fakeWorker)
+		}
 
 		logger := lagertest.NewTestLogger("volume-collector")
 		volumeCollector = gc.NewVolumeCollector(
 			logger,
 			volumeFactory,
-			workerFactory,
-			fakeBaggageclaimClientFactory,
+			fakeJobRunner,
 		)
 	})
 
@@ -61,13 +68,6 @@ var _ = Describe("VolumeCollector", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			build, err := team.CreateOneOffBuild()
-			Expect(err).ToNot(HaveOccurred())
-
-			worker, err = workerFactory.SaveWorker(atc.Worker{
-				Name:            "some-worker",
-				GardenAddr:      "1.2.3.4:7777",
-				BaggageclaimURL: "1.2.3.4:7788",
-			}, 5*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 
 			creatingContainer1, err = team.CreateContainer(worker.Name(), db.NewBuildStepContainerOwner(build.ID(), "some-plan"), db.ContainerMetadata{
