@@ -21,6 +21,8 @@ import Routes
 import LoginRedirect
 import RemoteData exposing (..)
 import UpdateMsg exposing (UpdateMsg)
+import Keyboard
+import Mouse
 
 type alias Ports =
     { render : ( Json.Encode.Value, Json.Encode.Value ) -> Cmd Msg
@@ -40,6 +42,8 @@ type alias Model =
     , turbulenceImgSrc : String
     , experiencingTurbulence : Bool
     , selectedGroups : List String
+    , hideLegend: Bool
+    , hideLegendCounter: Time
     }
 
 
@@ -55,6 +59,9 @@ type Msg
     = Noop
     | AutoupdateVersionTicked Time
     | AutoupdateTimerTicked Time
+    | HideLegendTimerTicked Time
+    | MouseMoved Mouse.Position
+    | KeyboardPressed Keyboard.KeyCode
     | PipelineIdentifierFetched Concourse.PipelineIdentifier
     | JobsFetched (Result Http.Error Json.Encode.Value)
     | ResourcesFetched (Result Http.Error Json.Encode.Value)
@@ -86,6 +93,8 @@ init ports flags =
             , renderedResources = Nothing
             , experiencingTurbulence = False
             , selectedGroups = queryGroupsForRoute flags.route
+            , hideLegend = False
+            , hideLegendCounter = 0
             }
     in
         loadPipeline pipelineLocator model
@@ -134,6 +143,25 @@ update msg model =
     case msg of
         Noop ->
             ( model, Cmd.none )
+
+        HideLegendTimerTicked _ ->
+            if model.hideLegendCounter + 50 * Time.millisecond > 10 * Time.second
+            then ( { model | hideLegend = True }
+                 , Cmd.none
+                 )
+            else ( { model | hideLegendCounter = model.hideLegendCounter + 50 * Time.millisecond }
+                 , Cmd.none
+                 )
+
+        MouseMoved _ ->
+            ( { model | hideLegend = False, hideLegendCounter = 0 }
+            , Cmd.none
+            )
+
+        KeyboardPressed _ ->
+            ( { model | hideLegend = False, hideLegendCounter = 0 }
+            , Cmd.none
+            )
 
         AutoupdateTimerTicked timestamp ->
             ( model
@@ -208,6 +236,9 @@ subscriptions model =
     Sub.batch
         [ autoupdateVersionTimer
         , Time.every (5 * Time.second) AutoupdateTimerTicked
+        , Time.every (50 * Time.millisecond) HideLegendTimerTicked
+        , Mouse.moves MouseMoved
+        , Keyboard.presses KeyboardPressed
         ]
 
 
@@ -232,7 +263,12 @@ view model =
                 , Html.p [ class "explanation" ] []
                 ]
             ]
-        , Html.dl [ class "legend" ]
+        , Html.dl
+            [ if model.hideLegend then
+                class "legend hidden"
+              else
+                class "legend"
+            ]
             [ Html.dt [ class "succeeded" ] []
             , Html.dd [] [ Html.text "succeeded" ]
             , Html.dt [ class "errored" ] []
