@@ -263,6 +263,15 @@ function createPipelineSvg(svg) {
   return g
 }
 
+function resetPipelineFocus() {
+  var g = d3.select("g.test")
+  if (!g.empty()) {
+    g.attr("transform", "");
+  }
+
+  return g
+}
+
 function createGraph(svg, jobs, resources) {
   var graph = new Graph();
 
