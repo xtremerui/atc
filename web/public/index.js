@@ -266,6 +266,7 @@ function createPipelineSvg(svg) {
 function resetPipelineFocus() {
   var g = d3.select("g.test")
   if (!g.empty()) {
+    d3.behavior.zoom().translate([0,0]).scale(1).scaleExtent([0.5, 10])
     g.attr("transform", "");
   }
 
