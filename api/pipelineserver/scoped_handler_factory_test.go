@@ -11,6 +11,8 @@ import (
 	"github.com/concourse/atc/db"
 	"github.com/concourse/atc/db/dbfakes"
 
+	"io/ioutil"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -77,6 +79,13 @@ var _ = Describe("Handler", func() {
 				Expect(response.StatusCode).To(Equal(http.StatusNotFound))
 			})
 
+			It("returns a JSONAPI error for the team not being found", func() {
+				body, err := ioutil.ReadAll(response.Body)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(body).To(MatchJSON(`{"errors": [{"title": "Team Not Found Error", "detail": "Team with name 'some-team' not found.", "status": "404"}]}`))
+			})
+
 			It("does not call the scoped handler", func() {
 				Expect(delegate.IsCalled).To(BeFalse())
 			})
@@ -138,6 +147,13 @@ var _ = Describe("Handler", func() {
 
 				It("does not call the scoped handler", func() {
 					Expect(delegate.IsCalled).To(BeFalse())
+				})
+
+				It("returns a JSONAPI error for the pipeline not being found", func() {
+					body, err := ioutil.ReadAll(response.Body)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(body).To(MatchJSON(`{"errors": [{"title": "Pipeline Not Found Error", "detail": "Pipeline with name 'some-pipeline' not found.", "status": "404"}]}`))
 				})
 			})
 

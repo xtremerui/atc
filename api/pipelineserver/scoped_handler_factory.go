@@ -1,10 +1,12 @@
 package pipelineserver
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/concourse/atc/auth"
 	"github.com/concourse/atc/db"
+	"github.com/google/jsonapi"
 )
 
 type ScopedHandlerFactory struct {
@@ -33,7 +35,13 @@ func (pdbh *ScopedHandlerFactory) HandlerFor(pipelineScopedHandler func(db.Pipel
 			}
 
 			if !found {
+				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusNotFound)
+				jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
+					Title:  "Team Not Found Error",
+					Detail: fmt.Sprintf("Team with name '%s' not found.", teamName),
+					Status: "404",
+				}})
 				return
 			}
 
@@ -44,7 +52,13 @@ func (pdbh *ScopedHandlerFactory) HandlerFor(pipelineScopedHandler func(db.Pipel
 			}
 
 			if !found {
+				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusNotFound)
+				jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
+					Title:  "Pipeline Not Found Error",
+					Detail: fmt.Sprintf("Pipeline with name '%s' not found.", pipelineName),
+					Status: "404",
+				}})
 				return
 			}
 		}
