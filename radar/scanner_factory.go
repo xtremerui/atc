@@ -21,6 +21,12 @@ type scannerFactory struct {
 	variablesFactory      creds.VariablesFactory
 }
 
+var ContainerExpiries = db.ContainerOwnerExpiries{
+	ExpiryGraceTime: 2 * time.Minute,
+	MinExpiry:       5 * time.Minute,
+	MaxExpiry:       1 * time.Hour,
+}
+
 func NewScannerFactory(
 	resourceFactory resource.ResourceFactory,
 	resourceConfigFactory db.ResourceConfigFactory,

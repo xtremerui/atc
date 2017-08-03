@@ -114,23 +114,33 @@ func (c buildStepContainerOwner) sqlMap() map[string]interface{} {
 // can be removed.
 func NewResourceConfigCheckSessionContainerOwner(
 	resourceConfig *UsedResourceConfig,
+	expiries ContainerOwnerExpiries,
 ) ContainerOwner {
 	return resourceConfigCheckSessionContainerOwner{
 		UsedResourceConfig: resourceConfig,
+		Expiries:           expiries,
 	}
 }
 
 type resourceConfigCheckSessionContainerOwner struct {
 	UsedResourceConfig *UsedResourceConfig
+	Expiries           ContainerOwnerExpiries
+}
+
+type ContainerOwnerExpiries struct {
+	ExpiryGraceTime time.Duration
+	MinExpiry       time.Duration
+	MaxExpiry       time.Duration
 }
 
 func (c resourceConfigCheckSessionContainerOwner) Find(conn Conn) (sq.Eq, bool, error) {
 	var id int
+
 	err := psql.Select("id").
 		From("resource_config_check_sessions").
 		Where(sq.And{
 			sq.Eq{"resource_config_id": c.UsedResourceConfig.ID},
-			sq.Expr("expires_at > NOW()"),
+			sq.Expr("expires_at > NOW() + interval '2 minutes'"),
 		}).
 		RunWith(conn).
 		QueryRow().
@@ -175,13 +185,13 @@ func (c resourceConfigCheckSessionContainerOwner) Create(tx Tx, workerName strin
 		Scan(&rccsID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			var biub time.Time
+			var bestIfUsedBy time.Time
 			err = psql.Select("NOW() + LEAST(GREATEST('5 minutes'::interval, NOW() - to_timestamp(w.start_time)), '1 hour'::interval)").
 				From("workers w").
 				Where(sq.Eq{"w.name": workerName}).
 				RunWith(tx).
 				QueryRow().
-				Scan(&biub)
+				Scan(&bestIfUsedBy)
 			if err != nil {
 				return nil, err
 			}
@@ -190,7 +200,7 @@ func (c resourceConfigCheckSessionContainerOwner) Create(tx Tx, workerName strin
 				SetMap(map[string]interface{}{
 					"resource_config_id":           c.UsedResourceConfig.ID,
 					"worker_base_resource_type_id": wbrtID,
-					"expires_at":                   biub,
+					"expires_at":                   bestIfUsedBy,
 				}).
 				Suffix("RETURNING id").
 				RunWith(tx).

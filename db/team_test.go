@@ -386,6 +386,12 @@ var _ = Describe("Team", func() {
 			variables            creds.Variables
 		)
 
+		expiries := db.ContainerOwnerExpiries{
+			ExpiryGraceTime: 2 * time.Minute,
+			MinExpiry:       5 * time.Minute,
+			MaxExpiry:       1 * time.Hour,
+		}
+
 		BeforeEach(func() {
 			fakeVariablesFactory = new(credsfakes.FakeVariablesFactory)
 			variables = template.StaticVariables{}
@@ -413,7 +419,7 @@ var _ = Describe("Team", func() {
 
 						resourceContainer, err = defaultTeam.CreateContainer(
 							"default-worker",
-							db.NewResourceConfigCheckSessionContainerOwner(usedResourceConfig),
+							db.NewResourceConfigCheckSessionContainerOwner(usedResourceConfig, expiries),
 							db.ContainerMetadata{},
 						)
 						Expect(err).NotTo(HaveOccurred())
@@ -429,7 +435,7 @@ var _ = Describe("Team", func() {
 						BeforeEach(func() {
 							_, err := otherTeam.CreateContainer(
 								"default-worker",
-								db.NewResourceConfigCheckSessionContainerOwner(usedResourceConfig),
+								db.NewResourceConfigCheckSessionContainerOwner(usedResourceConfig, expiries),
 								db.ContainerMetadata{},
 							)
 							Expect(err).NotTo(HaveOccurred())
@@ -1843,16 +1849,23 @@ var _ = Describe("Team", func() {
 		})
 	})
 
-	Describe("FindContainerOnWorker/CreateContainer", func() {
+	FDescribe("FindContainerOnWorker/CreateContainer", func() {
 		var (
 			containerMetadata db.ContainerMetadata
 			team              db.Team
 			fakeOwner         *dbfakes.FakeContainerOwner
+			owner             db.ContainerOwner
 			build             db.Build
 
 			foundCreatingContainer db.CreatingContainer
 			foundCreatedContainer  db.CreatedContainer
 		)
+
+		expiries := db.ContainerOwnerExpiries{
+			ExpiryGraceTime: 2 * time.Minute,
+			MinExpiry:       5 * time.Minute,
+			MaxExpiry:       1 * time.Hour,
+		}
 
 		BeforeEach(func() {
 			containerMetadata = db.ContainerMetadata{
@@ -1875,6 +1888,27 @@ var _ = Describe("Team", func() {
 			}, nil)
 
 			team = defaultTeam
+			_, err = team.SaveWorker(atc.Worker{
+				Name:      "fake-worker",
+				Team:      "default-team",
+				StartTime: 1501703719,
+				ResourceTypes: []atc.WorkerResourceType{
+					{
+						Type:       "fake-resource-type",
+						Image:      "fake-image",
+						Version:    "fake-version",
+						Privileged: false,
+					},
+				},
+			}, 1*time.Hour)
+
+			owner = db.NewResourceConfigCheckSessionContainerOwner(&db.UsedResourceConfig{
+				ID: 1,
+				CreatedByBaseResourceType: &db.UsedBaseResourceType{
+					ID:   1,
+					Name: "fake-resource-type",
+				},
+			}, expiries)
 		})
 
 		JustBeforeEach(func() {
