@@ -236,6 +236,9 @@ update msg model =
                                 ]
                             )
 
+        SubMsg navIndex (SubPage.DashboardPipelinesFetched (Ok pipelines)) ->
+            ( { model | subModel = SubPage.DashboardModel {pipelines=pipelines} }, Cmd.none )
+
         -- otherwise, pass down
         SubMsg navIndex m ->
             if (validNavIndex model.navIndex navIndex) then

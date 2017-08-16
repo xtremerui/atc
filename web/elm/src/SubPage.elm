@@ -19,6 +19,7 @@ import QueryString
 import Pipeline
 import BetaPipeline
 import TeamSelection
+import Dashboard
 import UpdateMsg exposing (UpdateMsg)
 
 
@@ -45,10 +46,12 @@ type Model
     | BetaPipelineModel BetaPipeline.Model
     | SelectTeamModel TeamSelection.Model
     | NotFoundModel NotFound.Model
+    | DashboardModel Dashboard.Model
 
 
 type Msg
     = PipelinesFetched (Result Http.Error (List Concourse.Pipeline))
+    | DashboardPipelinesFetched (Result Http.Error (List Concourse.Pipeline))
     | DefaultPipelineFetched (Maybe Concourse.Pipeline)
     | NoPipelineMsg NoPipeline.Msg
     | BuildMsg (Autoscroll.Msg Build.Msg)
@@ -158,6 +161,9 @@ init turbulencePath route =
                     , route = route
                     }
 
+        Routes.Dashboard ->
+            ( DashboardModel { pipelines = [] }, Cmd.batch [ fetchDashboardPipelines ] )
+
         Routes.Home ->
             ( WaitingModel route
             , Cmd.batch
@@ -165,14 +171,6 @@ init turbulencePath route =
                 , setTitle ""
                 ]
             )
-
-
-
---updateWithMsg String -> a msg -> b mdl -> Maybe UpdateMsg -> ( model, Cmd msg )
---updateWithMsg notFoundSrc message model outMessage=
---    case outMessage of
---        Just Job.NotFound -> (NotFoundModel { notFoundImgSrc = notFoundSrc }, setTitle "Not Found ")
---        Nothing -> superDupleWrap ( mdl, msg) <| (model, message)
 
 
 handleNotFound : String -> ( a -> Model, c -> Msg ) -> ( a, Cmd c, Maybe UpdateMsg ) -> ( Model, Cmd Msg )
@@ -364,6 +362,9 @@ view mdl =
         NotFoundModel model ->
             NotFound.view model
 
+        DashboardModel model ->
+            Dashboard.view model
+
 
 subscriptions : Model -> Sub Msg
 subscriptions mdl =
@@ -398,7 +399,14 @@ subscriptions mdl =
         NotFoundModel _ ->
             Sub.none
 
+        DashboardModel _ ->
+            Sub.none
+
 
 fetchPipelines : Cmd Msg
 fetchPipelines =
     Task.attempt PipelinesFetched Concourse.Pipeline.fetchPipelines
+
+fetchDashboardPipelines: Cmd Msg
+fetchDashboardPipelines =
+    Task.attempt DashboardPipelinesFetched Concourse.Pipeline.fetchPipelines
