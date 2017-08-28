@@ -118,6 +118,19 @@ type FakePipeline struct {
 		result1 bool
 		result2 error
 	}
+	CausalityStub        func(versionedResourceID int) ([]db.Cause, error)
+	causalityMutex       sync.RWMutex
+	causalityArgsForCall []struct {
+		versionedResourceID int
+	}
+	causalityReturns struct {
+		result1 []db.Cause
+		result2 error
+	}
+	causalityReturnsOnCall map[int]struct {
+		result1 []db.Cause
+		result2 error
+	}
 	SetResourceCheckErrorStub        func(db.Resource, error) error
 	setResourceCheckErrorMutex       sync.RWMutex
 	setResourceCheckErrorArgsForCall []struct {
@@ -938,6 +951,57 @@ func (fake *FakePipeline) ReloadReturnsOnCall(i int, result1 bool, result2 error
 	}
 	fake.reloadReturnsOnCall[i] = struct {
 		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakePipeline) Causality(versionedResourceID int) ([]db.Cause, error) {
+	fake.causalityMutex.Lock()
+	ret, specificReturn := fake.causalityReturnsOnCall[len(fake.causalityArgsForCall)]
+	fake.causalityArgsForCall = append(fake.causalityArgsForCall, struct {
+		versionedResourceID int
+	}{versionedResourceID})
+	fake.recordInvocation("Causality", []interface{}{versionedResourceID})
+	fake.causalityMutex.Unlock()
+	if fake.CausalityStub != nil {
+		return fake.CausalityStub(versionedResourceID)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.causalityReturns.result1, fake.causalityReturns.result2
+}
+
+func (fake *FakePipeline) CausalityCallCount() int {
+	fake.causalityMutex.RLock()
+	defer fake.causalityMutex.RUnlock()
+	return len(fake.causalityArgsForCall)
+}
+
+func (fake *FakePipeline) CausalityArgsForCall(i int) int {
+	fake.causalityMutex.RLock()
+	defer fake.causalityMutex.RUnlock()
+	return fake.causalityArgsForCall[i].versionedResourceID
+}
+
+func (fake *FakePipeline) CausalityReturns(result1 []db.Cause, result2 error) {
+	fake.CausalityStub = nil
+	fake.causalityReturns = struct {
+		result1 []db.Cause
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakePipeline) CausalityReturnsOnCall(i int, result1 []db.Cause, result2 error) {
+	fake.CausalityStub = nil
+	if fake.causalityReturnsOnCall == nil {
+		fake.causalityReturnsOnCall = make(map[int]struct {
+			result1 []db.Cause
+			result2 error
+		})
+	}
+	fake.causalityReturnsOnCall[i] = struct {
+		result1 []db.Cause
 		result2 error
 	}{result1, result2}
 }
@@ -2373,6 +2437,8 @@ func (fake *FakePipeline) Invocations() map[string][][]interface{} {
 	defer fake.checkPausedMutex.RUnlock()
 	fake.reloadMutex.RLock()
 	defer fake.reloadMutex.RUnlock()
+	fake.causalityMutex.RLock()
+	defer fake.causalityMutex.RUnlock()
 	fake.setResourceCheckErrorMutex.RLock()
 	defer fake.setResourceCheckErrorMutex.RUnlock()
 	fake.saveResourceVersionsMutex.RLock()

@@ -56,6 +56,8 @@ module Concourse
         , decodeUser
         , Version
         , decodeVersion
+        , Cause
+        , decodeCause
         )
 
 import Array exposing (Array)
@@ -767,6 +769,23 @@ decodeUser : Json.Decode.Decoder User
 decodeUser =
     Json.Decode.succeed User
         |: (Json.Decode.field "team" decodeTeam)
+
+
+
+-- Cause
+
+
+type alias Cause =
+    { versionedResourceID : Int
+    , buildID : Int
+    }
+
+
+decodeCause : Json.Decode.Decoder Cause
+decodeCause =
+    Json.Decode.succeed Cause
+        |: (Json.Decode.field "versioned_resource_id" Json.Decode.int)
+        |: (Json.Decode.field "build_id" Json.Decode.int)
 
 
 

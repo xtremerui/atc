@@ -9,6 +9,7 @@ module Concourse.Resource
         , disableVersionedResource
         , fetchInputTo
         , fetchOutputOf
+        , fetchCausality
         )
 
 import Concourse
@@ -135,3 +136,18 @@ fetchInputOutput action vrid =
             ++ toString vrid.versionID
             ++ "/"
             ++ action
+
+
+fetchCausality : Concourse.VersionedResourceIdentifier -> Task Http.Error (List Concourse.Cause)
+fetchCausality vrid =
+    Http.toTask <|
+        flip Http.get (Json.Decode.list Concourse.decodeCause) <|
+            "/api/v1/teams/"
+                ++ vrid.teamName
+                ++ "/pipelines/"
+                ++ vrid.pipelineName
+                ++ "/resources/"
+                ++ vrid.resourceName
+                ++ "/versions/"
+                ++ toString vrid.versionID
+                ++ "/causality"
