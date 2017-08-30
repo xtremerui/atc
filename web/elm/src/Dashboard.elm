@@ -1,6 +1,7 @@
 port module Dashboard exposing (Model, Msg, init, update, subscriptions, view)
 
 import Concourse
+import Concourse.Build
 import Concourse.BuildStatus
 import Concourse.Job
 import Concourse.Pipeline
@@ -14,6 +15,7 @@ import Time exposing (Time)
 type alias Model =
     { pipelines : RemoteData.WebData (List Concourse.Pipeline)
     , jobs : Dict Int (RemoteData.WebData (List Concourse.Job))
+    , builds : Dict Int (RemoteData.WebData (List Concourse.Build))
     , turbulenceImgSrc : String
     }
 
@@ -21,6 +23,7 @@ type alias Model =
 type Msg
     = PipelinesResponse (RemoteData.WebData (List Concourse.Pipeline))
     | JobsResponse Int (RemoteData.WebData (List Concourse.Job))
+    | BuildsResponse Int (RemoteData.WebData (List Concourse.Build))
     | AutoRefresh Time
 
 
@@ -28,6 +31,7 @@ init : String -> ( Model, Cmd Msg )
 init turbulencePath =
     ( { pipelines = RemoteData.NotAsked
       , jobs = Dict.empty
+      , builds = Dict.empty
       , turbulenceImgSrc = turbulencePath
       }
     , fetchPipelines
@@ -48,7 +52,27 @@ update msg model =
             )
 
         JobsResponse pipelineId response ->
-            ( { model | jobs = Dict.insert pipelineId response model.jobs }, Cmd.none )
+            let
+                pipeline =
+                    case model.pipelines of
+                        RemoteData.Success pipelines ->
+                            List.head <|
+                                List.filter ((==) pipelineId << .id) pipelines
+
+                        _ ->
+                            {}
+            in
+                ( { model | jobs = Dict.insert pipelineId response model.jobs }
+                , case response of
+                    RemoteData.Success jobs ->
+                        Cmd.batch
+                            (List.map (fetchJobBuilds pipeline) <|
+                                (List.filter ((==) Concourse.BuildStatusFailed << jobsStatus) jobs)
+                            )
+                )
+
+        BuildsResponse jobId response ->
+            ( { model | builds = Dict.insert jobId response model.builds }, Cmd.none )
 
         AutoRefresh _ ->
             ( model, fetchPipelines )
@@ -146,6 +170,18 @@ viewGroup teamName pipelines =
         ]
 
 
+
+-- viewPipelineFailedStatusDuration : Concourse.Pipeline -> String
+-- viewPipelineFailedStatusDuration pipeline =
+--  case pipeline
+--
+--   let
+--      buildFailed = true
+--      duration = now - starttime
+--   in
+--      check pipelineStatus failed? return start_time of failed build
+
+
 viewPipeline : PipelineState -> Html msg
 viewPipeline state =
     Html.div
@@ -162,6 +198,12 @@ viewPipeline state =
                 []
             , Html.div [ class "dashboard-pipeline-name" ]
                 [ Html.text state.pipeline.name ]
+            ]
+        , Html.div [ class "dashboard-pipeline-status" ]
+            [ Html.div [ class "dashboard-pipeline-status-label" ]
+                [ Html.text "failing for:" ]
+            , Html.div [ class "dashboard-pipeline-status-duration" ]
+                [ Html.text "" ]
             ]
         ]
 
@@ -218,3 +260,15 @@ fetchJobs pipeline =
                 { teamName = pipeline.teamName
                 , pipelineName = pipeline.name
                 }
+
+
+fetchJobBuilds : Concourse.Pipeline -> Concourse.Job -> Cmd Msg
+fetchJobBuilds pipeline job =
+    Cmd.map (JobsResponse job.id) <|
+        RemoteData.asCmd <|
+            Concourse.Build.fetchJobBuilds
+                { teamName = pipeline.teamName
+                , pipelineName = pipeline.name
+                , jobName = job.name
+                }
+                Nothing

@@ -535,6 +535,7 @@ type alias JobIdentifier =
 
 type alias Job =
     { pipeline : PipelineIdentifier
+    , id : Int
     , name : JobName
     , url : String
     , nextBuild : Maybe Build
@@ -564,6 +565,7 @@ type alias JobOutput =
 decodeJob : PipelineIdentifier -> Json.Decode.Decoder Job
 decodeJob pi =
     Json.Decode.succeed (Job pi)
+        |: (Json.Decode.field "id" Json.Decode.int)
         |: (Json.Decode.field "name" Json.Decode.string)
         |: (Json.Decode.field "url" Json.Decode.string)
         |: (Json.Decode.maybe (Json.Decode.field "next_build" decodeBuild))
