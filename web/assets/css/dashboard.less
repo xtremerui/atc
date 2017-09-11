@@ -24,6 +24,64 @@
   100%   { background-position-x: 0px; }
 }
 
+.flip-wrapper {
+  position: relative;
+  height: 120px;
+  line-height: normal;
+}
+
+.flip {
+  position: absolute;
+  height: 100%;
+  background: #444444;
+  font-size: 100px;
+  line-height: normal;
+}
+
+.flip { overflow: hidden; }
+
+.flip-top { // top front - lower number
+  animation: flip 1s ease-in-out infinite;
+  transform-origin: bottom;
+  backface-visibility: hidden;
+  height: 60px;
+  z-index: 1;
+}
+
+.flip-back { // bottom front - higher
+  animation: flip-back 1s ease-in-out infinite;
+  transform-origin: top;
+  backface-visibility: hidden;
+  line-height: 0;
+  height: 60px;
+  top: 60px;
+  z-index: 1;
+}
+
+.flip-next { // top back - higher number
+  height: 60px;
+  top: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.flip-bottom { // bottom back _ lower
+  height: 60px;
+  bottom: 0;
+  line-height: 0;
+  z-index: 0;
+}
+
+@keyframes flip {
+  0% { transform: rotateX(0deg); }
+  100%   { transform: rotateX(180deg); }
+}
+
+@keyframes flip-back {
+  0% { transform: rotateX(180deg); }
+  100% { transform: rotateX(0deg); }
+}
+
 .dashboard-pipeline {
   display: flex;
   flex-direction: column;

@@ -14,6 +14,9 @@ import Task exposing (Task)
 import Time exposing (Time)
 
 
+port resetDashboardDurations : () -> Cmd msg
+
+
 type alias Model =
     { pipelines : RemoteData.WebData (List Concourse.Pipeline)
     , jobs : Dict Int (RemoteData.WebData (List Concourse.Job))
@@ -57,7 +60,7 @@ update msg model =
             ( { model | jobs = Dict.insert pipelineId response model.jobs }, Cmd.none )
 
         ClockTick now ->
-            ( { model | now = Just now }, Cmd.none )
+            ( { model | now = Just now }, resetDashboardDurations () )
 
         AutoRefresh _ ->
             ( model, fetchPipelines )

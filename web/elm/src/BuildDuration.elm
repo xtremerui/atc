@@ -35,14 +35,185 @@ view duration now =
 
 
 viewFailDuration : Concourse.BuildDuration -> Time.Time -> Html a
-viewFailDuration duration now =
-    Html.div [ class "build-duration" ] <|
-        case duration.startedAt of
-            Nothing ->
-                []
+viewFailDuration duration time =
+    case duration.startedAt of
+        Nothing ->
+            Html.div [ class "build-duration" ] []
 
-            Just startedAt ->
-                [ labeledDuration "failing for:" (Duration.between (Date.toTime startedAt) now) ]
+        Just startedAt ->
+            let
+                now =
+                    time
+
+                oneSecondLater =
+                    Time.inMilliseconds time + 1000 * Time.millisecond
+
+                durationUntilNow =
+                    Duration.between (Date.toTime startedAt) now
+
+                durationUntilOneSecondLater =
+                    Duration.between (Date.toTime startedAt) oneSecondLater
+
+                seconds =
+                    truncate (durationUntilNow / 1000)
+
+                remainingSeconds =
+                    rem seconds 60
+
+                minutes =
+                    seconds // 60
+
+                remainingMinutes =
+                    rem minutes 60
+
+                hours =
+                    minutes // 60
+
+                remainingHours =
+                    rem hours 24
+
+                days =
+                    hours // 24
+
+                secondsFoo =
+                    truncate (durationUntilOneSecondLater / 1000)
+
+                remainingSecondsFoo =
+                    rem secondsFoo 60
+
+                minutesFoo =
+                    secondsFoo // 60
+
+                remainingMinutesFoo =
+                    rem minutesFoo 60
+
+                hoursFoo =
+                    minutesFoo // 60
+
+                remainingHoursFoo =
+                    rem hoursFoo 24
+
+                daysFoo =
+                    hoursFoo // 24
+
+                da =
+                    Html.td []
+                        [ Html.span
+                            [ if days /= daysFoo then
+                                class "flip-next"
+                              else
+                                class ""
+                            ]
+                            [ Html.text <| toString days ]
+                        , Html.span
+                            [ if days /= daysFoo then
+                                class "flip-back"
+                              else
+                                class ""
+                            ]
+                            [ Html.text <| toString days ]
+                        , Html.span
+                            [ if days /= daysFoo then
+                                class "flip-top"
+                              else
+                                class ""
+                            ]
+                            [ Html.text <| toString daysFoo ]
+                        ]
+
+                ho =
+                    Html.td []
+                        [ Html.span
+                            [ if remainingHours /= remainingHoursFoo then
+                                class "flip"
+                              else
+                                class ""
+                            ]
+                            [ Html.text <| toString remainingHours ]
+                        , Html.span
+                            []
+                            [ Html.text "h" ]
+                        ]
+
+                mi =
+                    Html.td []
+                        [ Html.span
+                            [ if remainingMinutes /= remainingMinutesFoo then
+                                class "flip"
+                              else
+                                class ""
+                            ]
+                            [ Html.text <| toString remainingMinutes ]
+                        , Html.span
+                            []
+                            [ Html.text "m" ]
+                        ]
+
+                se =
+                    Html.td []
+                        [ Html.div [ class "flip-wrapper" ]
+                            [ Html.div
+                                [ if remainingSeconds /= remainingSecondsFoo then
+                                    class "flip flip-next"
+                                  else
+                                    class ""
+                                ]
+                                [ Html.text <| toString remainingSecondsFoo ]
+                            , Html.div
+                                [ if remainingSeconds /= remainingSecondsFoo then
+                                    class "flip flip-top"
+                                  else
+                                    class ""
+                                ]
+                                [ Html.text <| toString remainingSeconds ]
+                            , Html.div
+                                [ if remainingSeconds /= remainingSecondsFoo then
+                                    class "flip flip-back"
+                                  else
+                                    class ""
+                                ]
+                                [ Html.text <| toString remainingSecondsFoo ]
+                            , Html.div
+                                [ if remainingSeconds /= remainingSecondsFoo then
+                                    class "flip flip-bottom"
+                                  else
+                                    class ""
+                                ]
+                                [ Html.text <| toString remainingSeconds ]
+                            ]
+                        , Html.div
+                            []
+                            [ Html.text "s" ]
+                        ]
+            in
+                case ( days, remainingHours, remainingMinutes, remainingSeconds ) of
+                    ( 0, 0, 0, s ) ->
+                        Html.div [ class "build-duration" ]
+                            [ Html.tr []
+                                [ Html.td [] [ Html.text "failing for:" ]
+                                , se
+                                ]
+                            ]
+
+                    ( 0, 0, m, s ) ->
+                        viewBuildDuration mi se
+
+                    ( 0, h, m, _ ) ->
+                        viewBuildDuration ho mi
+
+                    ( d, h, _, _ ) ->
+                        viewBuildDuration da ho
+
+
+viewBuildDuration : Html msg -> Html msg -> Html msg
+viewBuildDuration first second =
+    Html.div [ class "build-duration" ]
+        [ Html.tr []
+            [ Html.td [] [ Html.text "failing for:" ]
+            , first
+            , second
+            ]
+        ]
 
 
 labeledRelativeDate : String -> Time -> Date -> Html a

@@ -291,6 +291,15 @@ function resetPipelineFocus() {
   return g
 }
 
+function resetDashboardDurations() {
+  //if ($._data($(".flip-back")[0], 'events').animationiteration == undefined) {
+    $(".flip-back").off('animationiteration');
+    $(".flip-back").on('animationiteration', function() {
+      $('.flip').text(function(_, text) { return parseInt(text, 10) + 1 });
+    })
+  //}
+}
+
 function createGraph(svg, jobs, resources) {
   var graph = new Graph();
 
