@@ -1,7 +1,14 @@
 ---
+resources:
+- name: 1m
+  type: time
+  source: {interval: 1m}
+
+
 jobs:
 - name: failing
   plan:
+  - get: 1m
   - task: fail
     config:
       platform: linux
@@ -26,6 +33,7 @@ jobs:
 
 - name: passing
   plan:
+  - get: 1m
   - task: pass
     config:
       platform: linux
@@ -38,6 +46,8 @@ jobs:
 
 - name: erroring
   plan:
+  - get: 1m
+    passed: [passing]
   - task: error
     config:
       platform: linux
@@ -50,6 +60,8 @@ jobs:
 
 - name: running
   plan:
+  - get: 1m
+    passed: [passing]
   - task: run
     config:
       platform: linux

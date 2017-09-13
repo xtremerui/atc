@@ -1,5 +1,32 @@
 .dashboard {
   padding: 0 25px 0 45px;
+
+  .pipeline-grid {
+    float: none;
+    padding: 20px;
+  }
+  .pipeline-grid > .parallel-grid {
+    height: 300px;
+  }
+
+  .pipeline-grid > .node {
+
+    a {
+      width: 300px;
+      height: 300px;
+    }
+  }
+
+  .serial-grid, .node {
+    width: 100%;
+  }
+
+  .node {
+    padding-left: 0.5rem;
+    font-size: 0;
+    line-height: 10rem;
+    margin-bottom: 10px;
+  }
 }
 
 .dashboard-team-group {
@@ -37,6 +64,7 @@
   flex-basis: 30%;
   margin-bottom: 50px;
   margin-right: 20px;
+  background: #1F2E3C;
 
   @media all and (max-width: 700px) {
     flex-basis: 100%;

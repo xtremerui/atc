@@ -7,6 +7,8 @@ import Concourse.Job
 import Concourse.Pipeline
 import Date exposing (Date)
 import Dict exposing (Dict)
+import Graph exposing (Graph)
+import Grid exposing (Grid)
 import Html exposing (Html)
 import Html.Attributes exposing (class, classList, id, href, src)
 import RemoteData
@@ -27,6 +29,19 @@ type Msg
     | JobsResponse Int (RemoteData.WebData (List Concourse.Job))
     | ClockTick Time.Time
     | AutoRefresh Time
+
+
+type Node
+    = JobNode Concourse.Job
+    | ConstrainedInputNode
+        { resourceName : String
+        , dependentJob : Concourse.Job
+        , upstreamJob : Maybe Concourse.Job
+        }
+
+
+type alias ByName a =
+    Dict String a
 
 
 init : String -> ( Model, Cmd Msg )
@@ -187,6 +202,7 @@ viewPipeline now state =
             , Html.div [ class "dashboard-pipeline-name" ]
                 [ Html.text state.pipeline.name ]
             ]
+        , Html.div [] [ viewPipelinePreview state ]
         , Html.div [] (timeSincePipelineFailed now state)
         ]
 
@@ -293,3 +309,148 @@ fetchJobs pipeline =
 getCurrentTime : Cmd Msg
 getCurrentTime =
     Task.perform ClockTick Time.now
+
+
+initGraph : List Concourse.Job -> Graph Node ()
+initGraph jobs =
+    let
+        jobNodes =
+            List.map JobNode jobs
+
+        jobsByName =
+            List.foldl (\job dict -> Dict.insert job.name job dict) Dict.empty jobs
+
+        resourceNodes =
+            List.concatMap (jobResourceNodes jobsByName) jobs
+
+        graphNodes =
+            List.indexedMap Graph.Node (List.concat [ jobNodes, resourceNodes ])
+    in
+        Graph.fromNodesAndEdges
+            graphNodes
+            (List.concatMap (nodeEdges graphNodes) graphNodes)
+
+
+jobResourceNodes : ByName Concourse.Job -> Concourse.Job -> List Node
+jobResourceNodes jobs job =
+    List.concatMap (inputNodes jobs job) job.inputs
+
+
+inputNodes : ByName Concourse.Job -> Concourse.Job -> Concourse.JobInput -> List Node
+inputNodes jobs job { resource, passed } =
+    if List.isEmpty passed then
+        []
+    else
+        List.map (constrainedInputNode jobs resource job) passed
+
+
+constrainedInputNode : ByName Concourse.Job -> String -> Concourse.Job -> String -> Node
+constrainedInputNode jobs resourceName dependentJob upstreamJobName =
+    ConstrainedInputNode
+        { resourceName = resourceName
+        , dependentJob = dependentJob
+        , upstreamJob = Dict.get upstreamJobName jobs
+        }
+
+
+nodeEdges : List (Graph.Node Node) -> Graph.Node Node -> List (Graph.Edge ())
+nodeEdges allNodes { id, label } =
+    case label of
+        JobNode _ ->
+            []
+
+        ConstrainedInputNode { dependentJob, upstreamJob } ->
+            Graph.Edge id (jobId allNodes dependentJob) ()
+                :: case upstreamJob of
+                    Just upstream ->
+                        [ Graph.Edge (jobId allNodes upstream) id () ]
+
+                    Nothing ->
+                        []
+
+
+viewSerial : Grid Node () -> List (Html msg)
+viewSerial grid =
+    case grid of
+        Grid.Serial prev next ->
+            viewSerial prev ++ viewSerial next
+
+        _ ->
+            viewGrid grid
+
+
+viewGrid : Grid Node () -> List (Html msg)
+viewGrid grid =
+    case grid of
+        Grid.Cell { node } ->
+            viewNode node
+
+        Grid.Serial prev next ->
+            [ Html.div [ class "serial-grid" ]
+                (viewSerial prev ++ viewSerial next)
+            ]
+
+        Grid.Parallel grids ->
+            let
+                foo =
+                    List.concatMap viewGrid grids
+            in
+                if List.length foo <= 1 then
+                    foo
+                else
+                    [ Html.div [ class "parallel-grid" ] foo ]
+
+        Grid.End ->
+            []
+
+
+viewNode : Graph.Node Node -> List (Html msg)
+viewNode { id, label } =
+    case label of
+        JobNode job ->
+            let
+                linkAttrs =
+                    case ( job.finishedBuild, job.nextBuild ) of
+                        ( Just fb, Just nb ) ->
+                            Concourse.BuildStatus.show fb.status
+
+                        ( Just fb, Nothing ) ->
+                            Concourse.BuildStatus.show fb.status
+
+                        ( Nothing, Just nb ) ->
+                            "no-builds"
+
+                        ( Nothing, Nothing ) ->
+                            "no-builds"
+            in
+                [ Html.div [ class ("node job " ++ linkAttrs) ] [ Html.text job.name ] ]
+
+        _ ->
+            []
+
+
+viewPipelinePreview : PipelineState -> Html msg
+viewPipelinePreview { jobs } =
+    case jobs of
+        RemoteData.Success js ->
+            let
+                graph =
+                    initGraph js
+            in
+                Html.div [ class "pipeline-grid" ] (viewGrid (Grid.fromGraph graph))
+
+        RemoteData.Failure _ ->
+            Html.div [] []
+
+        _ ->
+            Html.div [] []
+
+
+jobId : List (Graph.Node Node) -> Concourse.Job -> Int
+jobId nodes job =
+    case List.filter ((==) (JobNode job) << .label) nodes of
+        { id } :: _ ->
+            id
+
+        [] ->
+            Debug.crash "impossible: job index not found"
