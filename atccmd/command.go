@@ -1068,7 +1068,7 @@ func (cmd *ATCCommand) constructPipelineSyncer(
 						cmd.Developer.Noop,
 						radarSchedulerFactory.BuildScanRunnerFactory(pipeline, cmd.ExternalURL.String(), variables),
 						pipeline,
-						1*time.Minute,
+						999999*time.Minute,
 					),
 				},
 				{

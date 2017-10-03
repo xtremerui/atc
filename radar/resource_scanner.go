@@ -23,6 +23,7 @@ type resourceScanner struct {
 	dbPipeline                        db.Pipeline
 	externalURL                       string
 	variables                         creds.Variables
+	resourceTypeScanner               *resourceTypeScanner
 }
 
 func NewResourceScanner(
@@ -34,6 +35,15 @@ func NewResourceScanner(
 	externalURL string,
 	variables creds.Variables,
 ) Scanner {
+	resourceTypeScanner := NewResourceTypeScanner(
+		resourceFactory,
+		resourceConfigCheckSessionFactory,
+		defaultInterval,
+		dbPipeline,
+		externalURL,
+		variables,
+	).(*resourceTypeScanner)
+
 	return &resourceScanner{
 		clock:                             clock,
 		resourceFactory:                   resourceFactory,
@@ -42,6 +52,7 @@ func NewResourceScanner(
 		dbPipeline:                        dbPipeline,
 		externalURL:                       externalURL,
 		variables:                         variables,
+		resourceTypeScanner:               resourceTypeScanner,
 	}
 }
 
@@ -201,6 +212,41 @@ func (scanner *resourceScanner) ScanFromVersion(logger lager.Logger, resourceNam
 	if err != nil {
 		logger.Error("failed-to-get-resource-types", err)
 		return err
+	}
+
+	/*
+
+		resource type scanner
+
+		for each resource type rt
+		  get rt.Version() and rt.Name()
+
+			if rt.Name() != savedResource.Type()
+			  continue
+
+			if Version() is nil
+			  resourceTypeScanner.Run w/ rt.Name()
+
+				update resourceTypes
+	*/
+
+	for _, resourceType := range resourceTypes {
+		if savedResource.Type() != resourceType.Name() {
+			continue
+		}
+		if resourceType.Version() == nil {
+			_, err = scanner.resourceTypeScanner.Run(logger, resourceType.Name())
+			if err != nil {
+				logger.Error("failed-to-scan-resource-type", err)
+				return err
+			}
+
+			resourceTypes, err = scanner.dbPipeline.ResourceTypes()
+			if err != nil {
+				logger.Error("failed-to-get-resource-types", err)
+				return err
+			}
+		}
 	}
 
 	versionedResourceTypes := creds.NewVersionedResourceTypes(

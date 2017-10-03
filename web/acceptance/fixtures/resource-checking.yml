@@ -6,6 +6,10 @@ resource_types:
     repository: concourse/echo-resource
     tag: latest
 
+- name: echo-resource-2
+  type: echo-resource
+  source:
+
 jobs:
 - name: checker
   plan:
@@ -14,7 +18,7 @@ jobs:
 
 resources:
 - name: few-versions
-  type: echo-resource
+  type: echo-resource-2
   source:
     versions:
       - { version: "1" }

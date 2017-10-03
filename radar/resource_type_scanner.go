@@ -70,6 +70,39 @@ func (scanner *resourceTypeScanner) Run(logger lager.Logger, resourceTypeName st
 		return 0, err
 	}
 
+	/*
+
+		for each resource type rt
+			get rt.Version() and rt.Name()
+
+			if rt.Name() != savedResourceType.Type()
+				continue
+
+			if Version() is nil
+				scanner.Run w/ rt.Name()
+
+				update resourceTypes
+	*/
+
+	for _, resourceType := range resourceTypes {
+		if savedResourceType.Type() != resourceType.Name() {
+			continue
+		}
+		if resourceType.Version() == nil {
+			_, err = scanner.Run(logger, resourceType.Name())
+			if err != nil {
+				logger.Error("failed-to-scan-resource-type", err)
+				return 0, err
+			}
+
+			resourceTypes, err = scanner.dbPipeline.ResourceTypes()
+			if err != nil {
+				logger.Error("failed-to-get-resource-types", err)
+				return 0, err
+			}
+		}
+	}
+
 	versionedResourceTypes := creds.NewVersionedResourceTypes(
 		scanner.variables,
 		resourceTypes.Deserialize(),
