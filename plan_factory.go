@@ -37,6 +37,8 @@ func (factory PlanFactory) NewPlan(step Step) Plan {
 		plan.Task = &t
 	case EnsurePlan:
 		plan.Ensure = &t
+	case OnAbortPlan:
+		plan.OnAbort = &t
 	case OnSuccessPlan:
 		plan.OnSuccess = &t
 	case OnFailurePlan:

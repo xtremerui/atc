@@ -12,6 +12,7 @@ func (plan Plan) Public() *json.RawMessage {
 		Put          *json.RawMessage `json:"put,omitempty"`
 		Task         *json.RawMessage `json:"task,omitempty"`
 		Ensure       *json.RawMessage `json:"ensure,omitempty"`
+		OnAbort      *json.RawMessage `json:"on_abort,omitempty"`
 		OnSuccess    *json.RawMessage `json:"on_success,omitempty"`
 		OnFailure    *json.RawMessage `json:"on_failure,omitempty"`
 		Try          *json.RawMessage `json:"try,omitempty"`
@@ -44,6 +45,10 @@ func (plan Plan) Public() *json.RawMessage {
 
 	if plan.Ensure != nil {
 		public.Ensure = plan.Ensure.Public()
+	}
+
+	if plan.OnAbort != nil {
+		public.OnAbort = plan.OnAbort.Public()
 	}
 
 	if plan.OnSuccess != nil {
@@ -126,6 +131,16 @@ func (plan DependentGetPlan) Public() *json.RawMessage {
 		Type:     plan.Type,
 		Name:     plan.Name,
 		Resource: plan.Resource,
+	})
+}
+
+func (plan OnAbortPlan) Public() *json.RawMessage {
+	return enc(struct {
+		Step *json.RawMessage `json:"step"`
+		Next *json.RawMessage `json:"on_abort"`
+	}{
+		Step: plan.Step.Public(),
+		Next: plan.Next.Public(),
 	})
 }
 
