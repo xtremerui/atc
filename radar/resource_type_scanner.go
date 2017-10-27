@@ -1,6 +1,7 @@
 package radar
 
 import (
+	"log"
 	"reflect"
 	"time"
 
@@ -44,7 +45,7 @@ func NewResourceTypeScanner(
 }
 
 func (scanner *resourceTypeScanner) Run(logger lager.Logger, resourceTypeName string) (time.Duration, error) {
-	return scanner.scan(logger.Session("tick"), resourceTypeName, nil, false)
+	return scanner.prescan(logger.Session("tick"), resourceTypeName, nil, false)
 }
 
 func (scanner *resourceTypeScanner) ScanFromVersion(logger lager.Logger, resourceTypeName string, fromVersion atc.Version) error {
@@ -53,8 +54,43 @@ func (scanner *resourceTypeScanner) ScanFromVersion(logger lager.Logger, resourc
 }
 
 func (scanner *resourceTypeScanner) Scan(logger lager.Logger, resourceTypeName string) error {
-	// FIXME: Implement
-	return nil
+	_, err := scanner.prescan(logger.Session("tick"), resourceTypeName, nil, true)
+	return err
+}
+
+func (scanner *resourceTypeScanner) prescan(logger lager.Logger, resourceTypeName string, fromVersion atc.Version, mustComplete bool) (time.Duration, error) {
+	// load up resource types from db
+	// return only the set required by the given type (transiviely, i.e. if its custom type depends on another, include it)
+	// evaluates their credentials
+	// for any that don't ahve a version, perform a check, and save their version
+	// RETURNS atc.VersionedResourceTypes - we can probably remove creds.VersionedResourceTypes
+	savedResourceType, found, err := scanner.dbPipeline.ResourceType(resourceTypeName)
+	if err != nil {
+		logger.Error("failed-to-get-current-version", err)
+		return 0, err
+	}
+
+	if !found {
+		return 0, db.ResourceTypeNotFoundError{Name: resourceTypeName}
+	}
+
+	resourceTypesFactory := NewResourceTypeFactory(scanner.dbPipeline, scanner.variables)
+	resourceTypeDependencies, err := resourceTypesFactory.ResourceTypes(logger, savedResourceType.Type())
+	if err != nil {
+		// XXX test
+		return 0, err
+	}
+	for _, rtDependency := range resourceTypeDependencies {
+		if rtDependency.Version == nil {
+			_, err := scanner.scan(logger, rtDependency.ResourceType.Name, fromVersion, false)
+			log.Println("SCAN", rtDependency.ResourceType.Name, err)
+			if err != nil {
+				logger.Error("failed-to-scan-dependency", err, lager.Data{"depName": rtDependency.ResourceType.Name})
+			}
+		}
+	}
+
+	return scanner.scan(logger, resourceTypeName, fromVersion, mustComplete)
 }
 
 func (scanner *resourceTypeScanner) scan(logger lager.Logger, resourceTypeName string, fromVersion atc.Version, mustComplete bool) (time.Duration, error) {
@@ -81,12 +117,12 @@ func (scanner *resourceTypeScanner) scan(logger lager.Logger, resourceTypeName s
 		return 0, err
 	}
 
-	// FIXME: Scan dependencies
-	//   Go through each resourceType
-	//     if the resourceType's Name matches the savedResourceType's Type
-	//       if the resoureceType's Version is nil
-	//         Scan the resourceType
-	//   Reload all the resourceTypes at some point
+	// // FIXME: Scan dependencies
+	// //   Go through each resourceType
+	// //     if the resourceType's Name matches the savedResourceType's Type
+	// //       if the resoureceType's Version is nil
+	// //         Scan the resourceType
+	// //   Reload all the resourceTypes at some point
 
 	versionedResourceTypes := creds.NewVersionedResourceTypes(
 		scanner.variables,
@@ -103,7 +139,7 @@ func (scanner *resourceTypeScanner) scan(logger lager.Logger, resourceTypeName s
 		logger,
 		savedResourceType.Type(),
 		source,
-		versionedResourceTypes.Without(savedResourceType.Name()),
+		versionedResourceTypes.Without(savedResourceType.Name()), //<- may no longer be necessary as the factory knows to exclude given type - check after!
 		ContainerExpiries,
 	)
 	if err != nil {

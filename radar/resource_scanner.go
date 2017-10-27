@@ -22,8 +22,10 @@ type resourceScanner struct {
 	dbPipeline                        db.Pipeline
 	externalURL                       string
 	variables                         creds.Variables
+	resourceTypeScanner               Scanner
 }
 
+// NewResourceScanner provides a pointer to a new resourceScanner struct
 func NewResourceScanner(
 	clock clock.Clock,
 	resourceFactory resource.ResourceFactory,
@@ -32,6 +34,7 @@ func NewResourceScanner(
 	dbPipeline db.Pipeline,
 	externalURL string,
 	variables creds.Variables,
+	resourceTypeScanner Scanner,
 ) Scanner {
 	return &resourceScanner{
 		clock:                             clock,
@@ -41,9 +44,12 @@ func NewResourceScanner(
 		dbPipeline:                        dbPipeline,
 		externalURL:                       externalURL,
 		variables:                         variables,
+		resourceTypeScanner:               resourceTypeScanner,
 	}
 }
 
+// The ErrFailedToAcquireLock is an error that indicates the failure to acquire
+// a lock for the performance of a resource scan
 var ErrFailedToAcquireLock = errors.New("failed-to-acquire-lock")
 
 func (scanner *resourceScanner) Run(logger lager.Logger, resourceName string) (time.Duration, error) {
@@ -90,18 +96,14 @@ func (scanner *resourceScanner) scan(logger lager.Logger, resourceName string, f
 		return 0, err
 	}
 
+	// XXX delegate to type scanner to make sure all dependencies are in place
+	scanner.resourceTypeScanner.Scan(logger, savedResource.Type())
+
 	resourceTypes, err := scanner.dbPipeline.ResourceTypes()
 	if err != nil {
 		logger.Error("failed-to-get-resource-types", err)
 		return 0, err
 	}
-
-	// FIXME: Scan dependencies
-	//   Go through each resourceType
-	//     if the resourceType's Name matches the savedResource's Type
-	//       if the resoureceType's Version is nil
-	//         Scan the resourceType
-	//   Reload all the resourceTypes at some point
 
 	versionedResourceTypes := creds.NewVersionedResourceTypes(
 		scanner.variables,
