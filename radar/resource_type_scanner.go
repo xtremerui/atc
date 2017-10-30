@@ -82,7 +82,7 @@ func (scanner *resourceTypeScanner) prescan(logger lager.Logger, resourceTypeNam
 	}
 	for _, rtDependency := range resourceTypeDependencies {
 		if rtDependency.Version == nil {
-			_, err := scanner.scan(logger, rtDependency.ResourceType.Name, fromVersion, false)
+			_, err := scanner.scan(logger, rtDependency.ResourceType.Name, fromVersion, true)
 			log.Println("SCAN", rtDependency.ResourceType.Name, err)
 			if err != nil {
 				logger.Error("failed-to-scan-dependency", err, lager.Data{"depName": rtDependency.ResourceType.Name})

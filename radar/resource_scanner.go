@@ -112,7 +112,6 @@ func (scanner *resourceScanner) scan(logger lager.Logger, resourceName string, f
 
 	source, err := creds.NewSource(scanner.variables, savedResource.Source()).Evaluate()
 	if err != nil {
-		logger.Error("failed-to-evaluate-resource-source", err)
 		scanner.setResourceCheckError(logger, savedResource, err)
 		return 0, err
 	}
