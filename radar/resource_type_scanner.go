@@ -20,7 +20,6 @@ type resourceTypeScanner struct {
 	resourceConfigCheckSessionFactory db.ResourceConfigCheckSessionFactory
 	defaultInterval                   time.Duration
 	dbPipeline                        db.Pipeline
-	externalURL                       string
 	variables                         creds.Variables
 }
 
@@ -30,7 +29,6 @@ func NewResourceTypeScanner(
 	resourceConfigCheckSessionFactory db.ResourceConfigCheckSessionFactory,
 	defaultInterval time.Duration,
 	dbPipeline db.Pipeline,
-	externalURL string,
 	variables creds.Variables,
 ) Scanner {
 	return &resourceTypeScanner{
@@ -39,7 +37,6 @@ func NewResourceTypeScanner(
 		resourceConfigCheckSessionFactory: resourceConfigCheckSessionFactory,
 		defaultInterval:                   defaultInterval,
 		dbPipeline:                        dbPipeline,
-		externalURL:                       externalURL,
 		variables:                         variables,
 	}
 }

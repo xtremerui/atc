@@ -190,6 +190,9 @@ func (p *containerProvider) FindOrCreateContainer(
 		if gardenContainer != nil {
 			logger.Debug("found-created-container-in-garden")
 		} else {
+
+			/// NO CONTAINER FOUND
+			/// ACTUALLY CREATE A CONTAINER
 			image, err := p.imageFactory.GetImage(
 				logger,
 				p.worker,

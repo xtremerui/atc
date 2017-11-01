@@ -111,6 +111,13 @@ func (s *buildStarter) tryStartNextPendingBuild(
 			// FIXME: reload resource resource types
 		}
 
+		unversionedResourceTypes, err := s.pipeline.ResourceTypes()
+		if err != nil {
+			logger.Error("failed-to-refresh-versioned-resource-types", err)
+			return false, err
+		}
+		resourceTypes = unversionedResourceTypes.Deserialize()
+
 		versions, err := s.pipeline.LoadVersionsDB()
 		if err != nil {
 			logger.Error("failed-to-load-versions-db", err)

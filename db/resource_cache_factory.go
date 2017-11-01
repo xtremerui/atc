@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/lager"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/concourse/atc"
-	"github.com/concourse/atc/creds"
 )
 
 //go:generate counterfeiter . ResourceCacheFactory
@@ -16,11 +15,7 @@ type ResourceCacheFactory interface {
 	FindOrCreateResourceCache(
 		logger lager.Logger,
 		resourceCacheUser ResourceCacheUser,
-		resourceTypeName string,
-		version atc.Version,
-		source atc.Source,
-		params atc.Params,
-		resourceTypes creds.VersionedResourceTypes,
+		resourceCache ResourceCache,
 	) (*UsedResourceCache, error)
 
 	// changing resource cache to interface to allow updates on object is not feasible.
@@ -44,26 +39,11 @@ func NewResourceCacheFactory(conn Conn) ResourceCacheFactory {
 func (f *resourceCacheFactory) FindOrCreateResourceCache(
 	logger lager.Logger,
 	resourceCacheUser ResourceCacheUser,
-	resourceTypeName string,
-	version atc.Version,
-	source atc.Source,
-	params atc.Params,
-	resourceTypes creds.VersionedResourceTypes,
+	resourceCache ResourceCache,
 ) (*UsedResourceCache, error) {
-	resourceConfig, err := constructResourceConfig(resourceTypeName, source, resourceTypes)
-	if err != nil {
-		return nil, err
-	}
-
-	resourceCache := ResourceCache{
-		ResourceConfig: resourceConfig,
-		Version:        version,
-		Params:         params,
-	}
-
 	var usedResourceCache *UsedResourceCache
 
-	err = safeFindOrCreate(f.conn, func(tx Tx) error {
+	err := safeFindOrCreate(f.conn, func(tx Tx) error {
 		var err error
 		usedResourceCache, err = resourceCache.findOrCreate(logger, tx)
 		if err != nil {

@@ -138,15 +138,26 @@ func (i *imageResourceFetcher) Fetch(
 		params = *i.imageResource.Params
 	}
 
+	resourceConfig, err := db.ConstructResourceConfig(
+		i.imageResource.Type,
+		source,
+		i.customTypes,
+	)
+	if err != nil {
+		logger.Error("failed-to-create-resource-config", err)
+		return nil, nil, nil, err
+	}
+
 	resourceCache, err := i.dbResourceCacheFactory.FindOrCreateResourceCache(
 		logger,
 		db.ForContainer(container.ID()),
-		i.imageResource.Type,
-		version,
-		source,
-		params,
-		i.customTypes,
+		db.ResourceCache{
+			ResourceConfig: resourceConfig,
+			Version:        version,
+			Params:         params,
+		},
 	)
+
 	if err != nil {
 		logger.Error("failed-to-create-resource-cache", err)
 		return nil, nil, nil, err

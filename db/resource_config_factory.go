@@ -80,6 +80,52 @@ func (f *resourceConfigFactory) FindResourceConfig(
 	return usedResourceConfig, true, nil
 }
 
+func ConstructResourceConfig(
+	resourceTypeName string,
+	source atc.Source,
+	resourceTypes creds.VersionedResourceTypes,
+	resourceTypeVersionResolver 
+) (ResourceConfig, error) {
+	resourceTypes = resourceTypes.Without(resourceTypeName)
+
+	resourceConfig := ResourceConfig{
+		Source: source,
+	}
+
+	customType, found := resourceTypes.Lookup(resourceTypeName)
+	if found {
+		source, err := customType.Source.Evaluate()
+		if err != nil {
+			return ResourceConfig{}, err
+		}
+
+		customTypeResourceConfig, err := constructResourceConfig(
+			customType.Type,
+			source,
+			resourceTypes.Without(customType.Name),
+		)
+		if err != nil {
+			return ResourceConfig{}, err
+		}
+
+		if customType.Version == nil {
+			
+			return ResourceConfig{}, ErrCustomResourceTypeVersionNotFound{Name: customType.Name}
+		}
+
+		resourceConfig.CreatedByResourceCache = &ResourceCache{
+			ResourceConfig: customTypeResourceConfig,
+			Version:        customType.Version,
+		}
+	} else {
+		resourceConfig.CreatedByBaseResourceType = &BaseResourceType{
+			Name: resourceTypeName,
+		}
+	}
+
+	return resourceConfig, nil
+}
+
 // constructResourceConfig cannot be called for constructing a resource type's
 // resource config while also containing the same resource type in the list of
 // resource types, because that results in a circular dependency.

@@ -1,4 +1,4 @@
-package radar
+package radar_test
 
 import (
 	"github.com/cloudfoundry/bosh-cli/director/template"
@@ -10,6 +10,7 @@ import (
 
 	rfakes "github.com/concourse/atc/resource/resourcefakes"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("ResourceTypeFactory", func() {
@@ -81,7 +82,7 @@ var _ = Describe("ResourceTypeFactory", func() {
 			var fakeSomeType *dbfakes.FakeResourceType
 
 			BeforeEach(func() {
-				fakeSomeType  =new(dbfakes.FakeResourceType)
+				fakeSomeType = new(dbfakes.FakeResourceType)
 				fakeSomeType.IDReturns(39)
 				fakeSomeType.NameReturns("some-type")
 				fakeSomeType.TypeReturns("docker-image")
@@ -109,20 +110,17 @@ var _ = Describe("ResourceTypeFactory", func() {
 				BeforeEach(func() {
 					fakeSomeType.TypeReturns("some-other-type")
 
-				fakeSomeOtherType  =new(dbfakes.FakeResourceType)
-				fakeSomeOtherType.IDReturns(40)
-				fakeSomeOtherType.NameReturns("some-other-type")
-				fakeSomeOtherType.TypeReturns("docker-image")
-				fakeSomeOtherType.SourceReturns(atc.Source{"custom": "((source-params))"})
-				fakeSomeOtherType.SetResourceConfigReturns(nil)
+					fakeSomeOtherType = new(dbfakes.FakeResourceType)
+					fakeSomeOtherType.IDReturns(40)
+					fakeSomeOtherType.NameReturns("some-other-type")
+					fakeSomeOtherType.TypeReturns("docker-image")
+					fakeSomeOtherType.SourceReturns(atc.Source{"custom": "((source-params))"})
+					fakeSomeOtherType.SetResourceConfigReturns(nil)
 				})
 
 				Context("when the dependent type has no version", func() {
-					BeforeEach(func() {
-						fakeSomeOtherType.V
-				})
-
-				Context("when the dependent type's version is present", func() {
+					Context("when the dependent type's version is present", func() {
+					})
 				})
 			})
 		})
