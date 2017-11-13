@@ -954,7 +954,7 @@ func (t *team) saveResource(tx Tx, resource atc.ResourceConfig, pipelineID int) 
 		VALUES ('default', $1)
 	`, resourceID)
 
-	return err
+	return swallowUniqueViolation(err)
 }
 
 func (t *team) saveResourceType(tx Tx, resourceType atc.ResourceType, pipelineID int) error {

@@ -23,6 +23,13 @@ func CreateResourceSpaces(tx migration.LimitedTx) error {
 	}
 
 	_, err = tx.Exec(`
+		SELECT setval('resource_spaces_id_seq', (SELECT MAX(id) from resource_spaces))
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
 		ALTER TABLE versioned_resources RENAME resource_id TO resource_space_id;
 	`)
 	if err != nil {
