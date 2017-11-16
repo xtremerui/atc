@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/lager"
 
 	"github.com/Masterminds/squirrel"
+	"github.com/concourse/atc/db/lock"
 	"github.com/concourse/atc/db/migration"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/lib/pq"
@@ -51,7 +52,7 @@ type Tx interface {
 	Stmt(stmt *sql.Stmt) *sql.Stmt
 }
 
-func Open(logger lager.Logger, sqlDriver string, sqlDataSource string, newKey *EncryptionKey, oldKey *EncryptionKey) (Conn, error) {
+func Open(logger lager.Logger, sqlDriver string, sqlDataSource string, newKey *EncryptionKey, oldKey *EncryptionKey, lockFactory lock.LockFactory) (Conn, error) {
 	for {
 		var strategy EncryptionStrategy
 		if newKey != nil {
@@ -60,7 +61,7 @@ func Open(logger lager.Logger, sqlDriver string, sqlDataSource string, newKey *E
 			strategy = NewNoEncryption()
 		}
 
-		sqlDb, err := migration.Open(sqlDriver, sqlDataSource)
+		sqlDb, err := migration.OpenWithLockFactory(sqlDriver, sqlDataSource, lockFactory)
 		if err != nil {
 			if strings.Contains(err.Error(), "dial ") {
 				logger.Error("failed-to-open-db-retrying", err)

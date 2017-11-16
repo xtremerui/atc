@@ -272,17 +272,17 @@ func (cmd *ATCCommand) Runner(positionalArguments []string) (ifrit.Runner, error
 		oldKey = db.NewEncryptionKey(cmd.OldEncryptionKey.AEAD)
 	}
 
-	dbConn, err := cmd.constructDBConn(retryingDriverName, logger, newKey, oldKey)
-	if err != nil {
-		return nil, err
-	}
-
 	lockConn, err := cmd.constructLockConn(retryingDriverName)
 	if err != nil {
 		return nil, err
 	}
 
 	lockFactory := lock.NewLockFactory(lockConn)
+
+	dbConn, err := cmd.constructDBConn(retryingDriverName, logger, newKey, oldKey, lockFactory)
+	if err != nil {
+		return nil, err
+	}
 
 	bus := dbConn.Bus()
 
@@ -780,8 +780,8 @@ func (cmd *ATCCommand) configureMetrics(logger lager.Logger) error {
 	return metric.Initialize(logger.Session("metrics"), host, cmd.Metrics.Attributes)
 }
 
-func (cmd *ATCCommand) constructDBConn(driverName string, logger lager.Logger, newKey *db.EncryptionKey, oldKey *db.EncryptionKey) (db.Conn, error) {
-	dbConn, err := db.Open(logger.Session("db"), driverName, cmd.Postgres.ConnectionString(), newKey, oldKey)
+func (cmd *ATCCommand) constructDBConn(driverName string, logger lager.Logger, newKey *db.EncryptionKey, oldKey *db.EncryptionKey, lockFactory lock.LockFactory) (db.Conn, error) {
+	dbConn, err := db.Open(logger.Session("db"), driverName, cmd.Postgres.ConnectionString(), newKey, oldKey, lockFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %s", err)
 	}

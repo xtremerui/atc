@@ -116,6 +116,7 @@ func (runner *Runner) OpenConn() db.Conn {
 		runner.DataSourceName(),
 		nil,
 		nil,
+		nil,
 	)
 	Expect(err).NotTo(HaveOccurred())
 
