@@ -90,6 +90,5 @@ func (rsf *radarSchedulerFactory) BuildScheduler(pipeline db.Pipeline, externalU
 			inputMapper,
 			rsf.engine,
 		),
-		Scanner: scanner,
 	}
 }

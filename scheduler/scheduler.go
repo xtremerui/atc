@@ -15,7 +15,6 @@ type Scheduler struct {
 	Pipeline     db.Pipeline
 	InputMapper  inputmapper.InputMapper
 	BuildStarter BuildStarter
-	Scanner      Scanner
 }
 
 //go:generate counterfeiter . Scanner

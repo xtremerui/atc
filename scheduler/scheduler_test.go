@@ -37,7 +37,6 @@ var _ = Describe("Scheduler", func() {
 			Pipeline:     fakePipeline,
 			InputMapper:  fakeInputMapper,
 			BuildStarter: fakeBuildStarter,
-			Scanner:      fakeScanner,
 		}
 
 		disaster = errors.New("bad thing")
