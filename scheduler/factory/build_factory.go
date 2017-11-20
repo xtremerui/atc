@@ -301,6 +301,11 @@ func (factory *buildFactory) applyHooks(cp constructionParams) (atc.Plan, error)
 		return atc.Plan{}, err
 	}
 
+	cp, err = factory.abortIfPresent(cp)
+	if err != nil {
+		return atc.Plan{}, err
+	}
+
 	cp, err = factory.successIfPresent(cp)
 	if err != nil {
 		return atc.Plan{}, err
@@ -348,6 +353,27 @@ func (factory *buildFactory) failureIfPresent(cp constructionParams) (constructi
 		}
 
 		cp.plan = factory.planFactory.NewPlan(atc.OnFailurePlan{
+			Step: cp.plan,
+			Next: nextPlan,
+		})
+	}
+
+	return cp, nil
+}
+
+func (factory *buildFactory) abortIfPresent(cp constructionParams) (constructionParams, error) {
+	if cp.hooks.Abort != nil {
+		nextPlan, err := factory.constructPlanFromConfig(
+			*cp.hooks.Abort,
+			cp.resources,
+			cp.resourceTypes,
+			cp.inputs,
+		)
+		if err != nil {
+			return constructionParams{}, err
+		}
+
+		cp.plan = factory.planFactory.NewPlan(atc.OnAbortPlan{
 			Step: cp.plan,
 			Next: nextPlan,
 		})

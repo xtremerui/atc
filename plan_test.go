@@ -228,6 +228,32 @@ var _ = Describe("Plan", func() {
 						},
 					},
 				},
+
+				atc.Plan{
+					ID: "26",
+					OnAbort: &atc.OnAbortPlan{
+						Step: atc.Plan{
+							ID: "27",
+							Task: &atc.TaskPlan{
+								Name:       "name",
+								ConfigPath: "some/config/path.yml",
+								Config: &atc.TaskConfig{
+									Params: map[string]string{"some": "secret"},
+								},
+							},
+						},
+						Next: atc.Plan{
+							ID: "28",
+							Task: &atc.TaskPlan{
+								Name:       "name",
+								ConfigPath: "some/config/path.yml",
+								Config: &atc.TaskConfig{
+									Params: map[string]string{"some": "secret"},
+								},
+							},
+						},
+					},
+				},
 			},
 		}
 
@@ -393,6 +419,25 @@ var _ = Describe("Plan", func() {
           }
         }
       ]
+    },
+    {
+      "id": "26",
+      "on_abort": {
+	    "step": {
+          "id": "27",
+          "task": {
+            "name": "name",
+            "privileged": false
+          }
+	    },
+        "on_abort": {
+          "id": "28",
+          "task": {
+            "name": "name",
+            "privileged": false
+          }
+	    }
+      }
     }
   ]
 }

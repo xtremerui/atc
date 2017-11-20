@@ -94,6 +94,7 @@ type Hooks struct {
 	Failure *PlanConfig
 	Ensure  *PlanConfig
 	Success *PlanConfig
+	Abort   *PlanConfig
 }
 
 // A PlanSequence corresponds to a chain of Compose plan, with an implicit
@@ -265,6 +266,9 @@ type PlanConfig struct {
 	// used on any step to execute on successful completion of the step
 	Success *PlanConfig `yaml:"on_success,omitempty" json:"on_success,omitempty" mapstructure:"on_success"`
 
+	// used by any step to run something when the build is aborted during execution of the step
+	Abort *PlanConfig `yaml:"on_abort,omitempty" json:"on_abort,omitempty" mapstructure:"on_abort"`
+
 	// used on any step to swallow failures and errors
 	Try *PlanConfig `yaml:"try,omitempty" json:"try,omitempty" mapstructure:"try"`
 
@@ -320,7 +324,7 @@ func (config PlanConfig) ResourceName() string {
 }
 
 func (config PlanConfig) Hooks() Hooks {
-	return Hooks{config.Failure, config.Ensure, config.Success}
+	return Hooks{config.Failure, config.Ensure, config.Success, config.Abort}
 }
 
 type ResourceConfigs []ResourceConfig
