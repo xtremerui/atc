@@ -36,10 +36,6 @@ import (
 	"github.com/concourse/atc/radar"
 	"github.com/concourse/atc/resource"
 	"github.com/concourse/atc/scheduler"
-	"github.com/concourse/atc/web"
-	"github.com/concourse/atc/web/manifest"
-	"github.com/concourse/atc/web/publichandler"
-	"github.com/concourse/atc/web/robotstxt"
 	"github.com/concourse/atc/worker"
 	"github.com/concourse/atc/worker/image"
 	"github.com/concourse/atc/wrappa"
@@ -81,7 +77,7 @@ type ATCCommand struct {
 
 	Logger LagerFlag
 
-	BindIP   IPFlag `long:"bind-ip"   default:"0.0.0.0" description:"IP address on which to listen for web traffic."`
+	BindIP   IPFlag `long:"bind-ip"   default:"0.0.0.0" description:"IP address on which to listen for HTTP traffic."`
 	BindPort uint16 `long:"bind-port" default:"8080"    description:"Port on which to listen for HTTP traffic."`
 
 	TLSBindPort uint16   `long:"tls-bind-port" description:"Port on which to listen for HTTPS traffic."`
@@ -508,33 +504,13 @@ func (cmd *ATCCommand) constructMembers(
 		return nil, err
 	}
 
-	webHandler, err := web.NewHandler(logger)
-	if err != nil {
-		return nil, err
-	}
-	webHandler = metric.WrapHandler(logger, "web", webHandler)
-
-	publicHandler, err := publichandler.NewHandler()
-	if err != nil {
-		return nil, err
-	}
-
 	var httpHandler, httpsHandler http.Handler
 	if cmd.isTLSEnabled() {
 		httpHandler = cmd.constructHTTPHandler(
 			logger,
-			tlsRedirectHandler{
-				externalHost: cmd.ExternalURL.URL().Host,
-				baseHandler:  webHandler,
-			},
-			tlsRedirectHandler{
-				externalHost: cmd.ExternalURL.URL().Host,
-				baseHandler:  publicHandler,
-			},
 
 			// note: intentionally not wrapping API; redirecting is more trouble than
 			// it's worth.
-
 			// we're mainly interested in having the web UI consistently https:// -
 			// API requests will likely not respect the redirected https:// URI upon
 			// the next request, plus the payload will have already been sent in
@@ -553,8 +529,6 @@ func (cmd *ATCCommand) constructMembers(
 
 		httpsHandler = cmd.constructHTTPHandler(
 			logger,
-			webHandler,
-			publicHandler,
 			apiHandler,
 			oauthV2Handler,
 			oauthV1Handler,
@@ -562,8 +536,6 @@ func (cmd *ATCCommand) constructMembers(
 	} else {
 		httpHandler = cmd.constructHTTPHandler(
 			logger,
-			webHandler,
-			publicHandler,
 			apiHandler,
 			oauthV2Handler,
 			oauthV1Handler,
@@ -715,14 +687,14 @@ func (cmd *ATCCommand) constructMembers(
 			NextProtos:   []string{"h2"},
 		}
 
-		members = append(members, grouper.Member{"web-tls", http_server.NewTLSServer(
+		members = append(members, grouper.Member{"api-tls", http_server.NewTLSServer(
 			cmd.tlsBindAddr(),
 			httpsHandler,
 			tlsConfig,
 		)})
 	}
 
-	members = append(members, grouper.Member{"web", http_server.New(
+	members = append(members, grouper.Member{"api", http_server.New(
 		cmd.nonTLSBindAddr(),
 		httpHandler,
 	)})
@@ -760,8 +732,8 @@ func (cmd *ATCCommand) Runner(positionalArguments []string) (ifrit.Runner, error
 
 	apiMembers, err := cmd.constructMembers(positionalArguments, []string{
 		"debug",
-		"web-tls",
-		"web",
+		"api-tls",
+		"api",
 	},
 		32,
 		"api",
@@ -1114,20 +1086,14 @@ func (cmd *ATCCommand) constructEngine(
 
 func (cmd *ATCCommand) constructHTTPHandler(
 	logger lager.Logger,
-	webHandler http.Handler,
-	publicHandler http.Handler,
 	apiHandler http.Handler,
 	oauthV2Handler http.Handler,
 	oauthV1Handler http.Handler,
 ) http.Handler {
-	webMux := http.NewServeMux()
-	webMux.Handle("/api/v1/", apiHandler)
-	webMux.Handle("/auth/", oauthV2Handler)
-	webMux.Handle("/oauth/v1/", oauthV1Handler)
-	webMux.Handle("/public/", publicHandler)
-	webMux.Handle("/manifest.json", manifest.NewHandler())
-	webMux.Handle("/robots.txt", robotstxt.Handler{})
-	webMux.Handle("/", webHandler)
+	apiMux := http.NewServeMux()
+	apiMux.Handle("/api/v1/", apiHandler)
+	apiMux.Handle("/auth/", oauthV2Handler)
+	apiMux.Handle("/oauth/v1/", oauthV1Handler)
 
 	httpHandler := wrappa.LoggerHandler{
 		Logger: logger,
@@ -1138,7 +1104,7 @@ func (cmd *ATCCommand) constructHTTPHandler(
 			// proxy Authorization header to/from auth cookie,
 			// to support auth from JS (EventSource) and custom JWT auth
 			Handler: auth.CookieSetHandler{
-				Handler: webMux,
+				Handler: apiMux,
 			},
 		},
 	}

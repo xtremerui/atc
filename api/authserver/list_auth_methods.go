@@ -10,9 +10,7 @@ import (
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/auth/provider"
 	"github.com/concourse/atc/db"
-	"github.com/concourse/atc/web"
 	"github.com/google/jsonapi"
-	"github.com/tedsuo/rata"
 )
 
 const BasicAuthDisplayName = "Basic Auth"
@@ -91,18 +89,9 @@ func (s *Server) authMethods(team db.Team) ([]atc.AuthMethod, error) {
 	}
 
 	if team.BasicAuth() != nil {
-		path, err := web.Routes.CreatePathForRoute(
-			web.TeamLogIn,
-			rata.Params{"team_name": team.Name()},
-		)
-		if err != nil {
-			return nil, err
-		}
-
 		methods = append(methods, atc.AuthMethod{
 			Type:        atc.AuthTypeBasic,
 			DisplayName: BasicAuthDisplayName,
-			AuthURL:     s.externalURL + path,
 		})
 	}
 

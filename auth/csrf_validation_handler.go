@@ -63,5 +63,9 @@ func (h csrfValidationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8082")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Expose-Headers", "X-Csrf-Token, Set-Cookie")
+
 	h.handler.ServeHTTP(w, r)
 }
