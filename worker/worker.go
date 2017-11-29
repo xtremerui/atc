@@ -69,8 +69,6 @@ type gardenWorker struct {
 	volumeClient       VolumeClient
 	baggageclaimClient baggageclaim.Client
 
-	provider WorkerProvider
-
 	clock clock.Clock
 
 	activeContainers int
@@ -86,19 +84,12 @@ type gardenWorker struct {
 func NewGardenWorker(
 	containerProviderFactory ContainerProviderFactory,
 	volumeClient VolumeClient,
-	provider WorkerProvider,
 	clock clock.Clock,
-	activeContainers int,
-	resourceTypes []atc.WorkerResourceType,
-	platform string,
-	tags atc.Tags,
-	teamID int,
-	name string,
-	startTime int64,
-	version *string,
+	dbWorker db.Worker,
 	gardenClient garden.Client,
 	baggageclaimClient baggageclaim.Client,
 ) Worker {
+
 	return &gardenWorker{
 		containerProviderFactory: containerProviderFactory,
 		gardenClient:             gardenClient,
@@ -106,16 +97,15 @@ func NewGardenWorker(
 		volumeClient:       volumeClient,
 		baggageclaimClient: baggageclaimClient,
 
-		provider:         provider,
 		clock:            clock,
-		activeContainers: activeContainers,
-		resourceTypes:    resourceTypes,
-		platform:         platform,
-		tags:             tags,
-		teamID:           teamID,
-		name:             name,
-		startTime:        startTime,
-		version:          version,
+		activeContainers: dbWorker.ActiveContainers(),
+		resourceTypes:    dbWorker.ResourceTypes(),
+		platform:         dbWorker.Platform(),
+		tags:             dbWorker.Tags(),
+		teamID:           dbWorker.TeamID(),
+		name:             dbWorker.Name(),
+		startTime:        dbWorker.StartTime(),
+		version:          dbWorker.Version(),
 	}
 }
 

@@ -25,7 +25,6 @@ var _ = Describe("Worker", func() {
 		logger                       *lagertest.TestLogger
 		fakeVolumeClient             *wfakes.FakeVolumeClient
 		fakeImageFactory             *wfakes.FakeImageFactory
-		fakeWorkerProvider           *wfakes.FakeWorkerProvider
 		fakeClock                    *fakeclock.FakeClock
 		fakeDBResourceCacheFactory   *dbfakes.FakeResourceCacheFactory
 		fakeResourceConfigFactory    *dbfakes.FakeResourceConfigFactory
@@ -68,7 +67,6 @@ var _ = Describe("Worker", func() {
 
 		fakeDBResourceCacheFactory = new(dbfakes.FakeResourceCacheFactory)
 		fakeResourceConfigFactory = new(dbfakes.FakeResourceConfigFactory)
-		fakeWorkerProvider = new(wfakes.FakeWorkerProvider)
 		fakeContainerProvider = new(wfakes.FakeContainerProvider)
 		fakeContainerProviderFactory = new(wfakes.FakeContainerProviderFactory)
 		fakeContainerProviderFactory.ContainerProviderForReturns(fakeContainerProvider)
@@ -77,19 +75,21 @@ var _ = Describe("Worker", func() {
 	})
 
 	JustBeforeEach(func() {
+		dbWorker := new(dbfakes.FakeWorker)
+		dbWorker.ActiveContainersReturns(activeContainers)
+		dbWorker.ResourceTypesReturns(resourceTypes)
+		dbWorker.PlatformReturns(platform)
+		dbWorker.TagsReturns(tags)
+		dbWorker.TeamIDReturns(teamID)
+		dbWorker.NameReturns(workerName)
+		dbWorker.StartTimeReturns(workerStartTime)
+		dbWorker.VersionReturns(&workerVersion)
+
 		gardenWorker = NewGardenWorker(
 			fakeContainerProviderFactory,
 			fakeVolumeClient,
-			fakeWorkerProvider,
 			fakeClock,
-			activeContainers,
-			resourceTypes,
-			platform,
-			tags,
-			teamID,
-			workerName,
-			workerStartTime,
-			&workerVersion,
+			dbWorker,
 			fakeGardenClient,
 			fakeBaggageClaimClient,
 		)

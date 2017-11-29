@@ -189,16 +189,8 @@ func (provider *dbWorkerProvider) newGardenWorker(logger lager.Logger, tikTok cl
 	return NewGardenWorker(
 		containerProviderFactory,
 		volumeClient,
-		provider,
 		tikTok,
-		savedWorker.ActiveContainers(),
-		savedWorker.ResourceTypes(),
-		savedWorker.Platform(),
-		savedWorker.Tags(),
-		savedWorker.TeamID(),
-		savedWorker.Name(),
-		savedWorker.StartTime(),
-		savedWorker.Version(),
+		savedWorker,
 		gClient,
 		bClient,
 	)
