@@ -33,6 +33,8 @@ func (err MalformedMetadataError) Error() string {
 	return fmt.Sprintf("malformed image metadata: %s", err.UnmarshalError)
 }
 
+const certsVolumeName = "resource-certs"
+
 const ephemeralPropertyName = "concourse:ephemeral"
 const volumePropertyName = "concourse:volumes"
 const volumeMountsPropertyName = "concourse:volume-mounts"
@@ -149,6 +151,27 @@ func (worker *gardenWorker) IsVersionCompatible(logger lager.Logger, comparedVer
 
 		return false
 	}
+}
+
+func (worker *gardenWorker) EnsureCertsVolumeExists(logger lager.Logger) error {
+	baggageclaimClient := worker.BaggageclaimClient()
+
+	_, found, err := baggageclaimClient.LookupVolume(logger, certsVolumeName)
+	if err != nil {
+		return err
+	}
+
+	if found {
+		return nil
+	}
+
+	_, err = baggageclaimClient.CreateVolume(logger, certsVolumeName, baggageclaim.VolumeSpec{
+		Strategy: baggageclaim.ImportStrategy{
+			Path: "/etc/ssl/certs",
+		},
+	})
+
+	return err
 }
 
 func (worker *gardenWorker) FindResourceTypeByPath(path string) (atc.WorkerResourceType, bool) {
