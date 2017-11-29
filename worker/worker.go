@@ -63,11 +63,11 @@ type Worker interface {
 }
 
 type gardenWorker struct {
-	containerProviderFactory ContainerProviderFactory
-	gardenClient             garden.Client
-
-	volumeClient       VolumeClient
+	gardenClient       garden.Client
 	baggageclaimClient baggageclaim.Client
+
+	volumeClient      VolumeClient
+	containerProvider ContainerProvider
 
 	clock clock.Clock
 
@@ -82,20 +82,19 @@ type gardenWorker struct {
 }
 
 func NewGardenWorker(
-	containerProviderFactory ContainerProviderFactory,
-	volumeClient VolumeClient,
-	clock clock.Clock,
-	dbWorker db.Worker,
 	gardenClient garden.Client,
 	baggageclaimClient baggageclaim.Client,
+	containerProvider ContainerProvider,
+	volumeClient VolumeClient,
+	dbWorker db.Worker,
+	clock clock.Clock,
 ) Worker {
 
 	return &gardenWorker{
-		containerProviderFactory: containerProviderFactory,
-		gardenClient:             gardenClient,
-
-		volumeClient:       volumeClient,
+		gardenClient:       gardenClient,
 		baggageclaimClient: baggageclaimClient,
+		volumeClient:       volumeClient,
+		containerProvider:  containerProvider,
 
 		clock:            clock,
 		activeContainers: dbWorker.ActiveContainers(),
@@ -183,9 +182,8 @@ func (worker *gardenWorker) FindOrCreateContainer(
 	spec ContainerSpec,
 	resourceTypes creds.VersionedResourceTypes,
 ) (Container, error) {
-	containerProvider := worker.containerProviderFactory.ContainerProviderFor(worker)
 
-	return containerProvider.FindOrCreateContainer(
+	return worker.containerProvider.FindOrCreateContainer(
 		logger,
 		cancel,
 		owner,
@@ -197,8 +195,7 @@ func (worker *gardenWorker) FindOrCreateContainer(
 }
 
 func (worker *gardenWorker) FindContainerByHandle(logger lager.Logger, teamID int, handle string) (Container, bool, error) {
-	containerProvider := worker.containerProviderFactory.ContainerProviderFor(worker)
-	return containerProvider.FindCreatedContainerByHandle(logger, handle, teamID)
+	return worker.containerProvider.FindCreatedContainerByHandle(logger, handle, teamID)
 }
 
 func (worker *gardenWorker) ActiveContainers() int {

@@ -22,26 +22,25 @@ import (
 
 var _ = Describe("Worker", func() {
 	var (
-		logger                       *lagertest.TestLogger
-		fakeVolumeClient             *wfakes.FakeVolumeClient
-		fakeImageFactory             *wfakes.FakeImageFactory
-		fakeClock                    *fakeclock.FakeClock
-		fakeDBResourceCacheFactory   *dbfakes.FakeResourceCacheFactory
-		fakeResourceConfigFactory    *dbfakes.FakeResourceConfigFactory
-		fakeContainerProviderFactory *wfakes.FakeContainerProviderFactory
-		fakeContainerProvider        *wfakes.FakeContainerProvider
-		activeContainers             int
-		resourceTypes                []atc.WorkerResourceType
-		platform                     string
-		tags                         atc.Tags
-		teamID                       int
-		workerName                   string
-		workerStartTime              int64
-		workerUptime                 uint64
-		gardenWorker                 Worker
-		workerVersion                string
-		fakeGardenClient             *gardenfakes.FakeClient
-		fakeBaggageClaimClient       *baggageclaimfakes.FakeClient
+		logger                     *lagertest.TestLogger
+		fakeVolumeClient           *wfakes.FakeVolumeClient
+		fakeImageFactory           *wfakes.FakeImageFactory
+		fakeClock                  *fakeclock.FakeClock
+		fakeDBResourceCacheFactory *dbfakes.FakeResourceCacheFactory
+		fakeResourceConfigFactory  *dbfakes.FakeResourceConfigFactory
+		fakeContainerProvider      *wfakes.FakeContainerProvider
+		activeContainers           int
+		resourceTypes              []atc.WorkerResourceType
+		platform                   string
+		tags                       atc.Tags
+		teamID                     int
+		workerName                 string
+		workerStartTime            int64
+		workerUptime               uint64
+		gardenWorker               Worker
+		workerVersion              string
+		fakeGardenClient           *gardenfakes.FakeClient
+		fakeBaggageClaimClient     *baggageclaimfakes.FakeClient
 	)
 
 	BeforeEach(func() {
@@ -68,8 +67,6 @@ var _ = Describe("Worker", func() {
 		fakeDBResourceCacheFactory = new(dbfakes.FakeResourceCacheFactory)
 		fakeResourceConfigFactory = new(dbfakes.FakeResourceConfigFactory)
 		fakeContainerProvider = new(wfakes.FakeContainerProvider)
-		fakeContainerProviderFactory = new(wfakes.FakeContainerProviderFactory)
-		fakeContainerProviderFactory.ContainerProviderForReturns(fakeContainerProvider)
 		fakeGardenClient = new(gardenfakes.FakeClient)
 		fakeBaggageClaimClient = new(baggageclaimfakes.FakeClient)
 	})
@@ -86,12 +83,12 @@ var _ = Describe("Worker", func() {
 		dbWorker.VersionReturns(&workerVersion)
 
 		gardenWorker = NewGardenWorker(
-			fakeContainerProviderFactory,
-			fakeVolumeClient,
-			fakeClock,
-			dbWorker,
 			fakeGardenClient,
 			fakeBaggageClaimClient,
+			fakeContainerProvider,
+			fakeVolumeClient,
+			dbWorker,
+			fakeClock,
 		)
 
 		fakeClock.IncrementBySeconds(workerUptime)
@@ -195,8 +192,6 @@ var _ = Describe("Worker", func() {
 		})
 
 		It("calls the container provider", func() {
-			Expect(fakeContainerProviderFactory.ContainerProviderForCallCount()).To(Equal(1))
-
 			Expect(fakeContainerProvider.FindCreatedContainerByHandleCallCount()).To(Equal(1))
 
 			Expect(foundContainer).To(Equal(existingContainer))

@@ -162,36 +162,34 @@ func (provider *dbWorkerProvider) newGardenWorker(logger lager.Logger, tikTok cl
 
 	volumeClient := NewVolumeClient(
 		bClient,
+		savedWorker,
+		clock.NewClock(),
 		provider.lockFactory,
 		provider.dbVolumeFactory,
 		provider.dbWorkerBaseResourceTypeFactory,
 		provider.dbWorkerTaskCacheFactory,
-		clock.NewClock(),
-		savedWorker,
 	)
 
-	containerProviderFactory := NewContainerProviderFactory(
+	containerProvider := NewContainerProvider(
 		gClient,
 		bClient,
 		volumeClient,
+		savedWorker,
+		tikTok,
 		provider.imageFactory,
 		provider.dbVolumeFactory,
 		provider.dbResourceCacheFactory,
 		provider.dbResourceConfigFactory,
 		provider.dbTeamFactory,
 		provider.lockFactory,
-		savedWorker.HTTPProxyURL(),
-		savedWorker.HTTPSProxyURL(),
-		savedWorker.NoProxy(),
-		clock.NewClock(),
 	)
 
 	return NewGardenWorker(
-		containerProviderFactory,
-		volumeClient,
-		tikTok,
-		savedWorker,
 		gClient,
 		bClient,
+		containerProvider,
+		volumeClient,
+		savedWorker,
+		tikTok,
 	)
 }
