@@ -48,6 +48,8 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	multierror "github.com/hashicorp/go-multierror"
 	flags "github.com/jessevdk/go-flags"
+	"github.com/markbates/goth"
+	"github.com/markbates/goth/providers/github"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/http_server"
@@ -1152,6 +1154,13 @@ func (cmd *ATCCommand) constructAPIHandler(
 	authValidator := auth.JWTValidator{
 		PublicKey: &signingKey.PublicKey,
 	}
+
+	goth.UseProviders(
+		github.New(
+			"9eda3e0f2f47af125cf8",
+			"dce4f72f7cac2c0d58f8b4c371b174e91caeac52",
+			"http://10.74.4.198:8080/auth/github/callback", "read:org"),
+	)
 
 	getTokenValidator := auth.NewGetTokenValidator(teamFactory)
 

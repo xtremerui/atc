@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/lager"
+	"github.com/markbates/goth/gothic"
 )
 
 type LogOutHandler struct {
@@ -16,6 +17,8 @@ func NewLogOutHandler(logger lager.Logger) http.Handler {
 
 func (handler *LogOutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler.logger.Session("logout")
+
+	gothic.Logout(w, r)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:   AuthCookieName,

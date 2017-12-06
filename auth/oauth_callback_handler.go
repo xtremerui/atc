@@ -11,11 +11,10 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/atc/db"
+	"github.com/markbates/goth/gothic"
+	"golang.org/x/oauth2"
 
 	"net/url"
-
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
 )
 
 type OAuthCallbackHandler struct {
@@ -55,7 +54,20 @@ func NewOAuthCallbackHandler(
 func (handler *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hLog := handler.logger.Session("callback")
 	providerName := r.FormValue(":provider")
-	paramState := r.FormValue("state")
+
+	user, err := gothic.CompleteUserAuth(w, r)
+	if err != nil {
+		fmt.Fprintln(w, err)
+		return
+	}
+
+	// TODO
+	// we need to be able to get the team name from the state token
+	// - is this possible without manually storing this value in a cookie
+	// - can goth handle this for us?
+
+	// we do need to get the state token form the session somehow though
+	// because the oauth1 flow doesn't provide the state token in the query param
 
 	cookieState, err := r.Cookie(OAuthStateCookie)
 	if err != nil {
@@ -66,19 +78,6 @@ func (handler *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if !handler.stateValidator.Valid(cookieState.Value, paramState) {
-		hLog.Info("state-cookie-mismatch", lager.Data{
-			"param-state":  paramState,
-			"cookie-state": cookieState.Value,
-		})
-
-		http.Error(w, "state cookie does not match param", http.StatusUnauthorized)
-		return
-	}
-
-	// Read the state from the cookie instead of the param, as the param
-	// will be empty if this is an OAuth 1 request. For OAuth 2, we already
-	// made sure that the cookie and the param contain the same state.
 	stateJSON, err := base64.RawURLEncoding.DecodeString(cookieState.Value)
 	if err != nil {
 		hLog.Info("failed-to-decode-state", lager.Data{
@@ -135,27 +134,7 @@ func (handler *OAuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	preTokenClient, err := provider.PreTokenClient()
-	if err != nil {
-		handler.logger.Error("failed-to-construct-pre-token-client", err, lager.Data{
-			"provider": providerName,
-			"teamName": teamName,
-		})
-
-		http.Error(w, "unable to connect to provider: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	ctx := context.WithValue(oauth2.NoContext, oauth2.HTTPClient, preTokenClient)
-
-	token, err := provider.Exchange(ctx, r)
-	if err != nil {
-		hLog.Error("failed-to-exchange-token", err)
-		http.Error(w, "failed to exchange token", http.StatusInternalServerError)
-		return
-	}
-
-	httpClient := provider.Client(ctx, token)
+	httpClient := provider.Client(r.Context(), &oauth2.Token{AccessToken: user.AccessToken})
 
 	verified, err := provider.Verify(hLog.Session("verify"), httpClient)
 	if err != nil {
