@@ -597,19 +597,52 @@ handleHistoryFetched history model =
     let
         withBuilds =
             { model
-                | history = history.content
+                | history = List.append model.history history.content
                 , pagination = history.pagination
             }
 
         currentBuild =
             model.currentBuild |> RemoteData.toMaybe
+
+        job = currentBuild |> Maybe.andThen (.job << .build)
+
+        id =
+          case currentBuild of
+            Just current ->
+              current.build.id
+            Nothing ->
+              0
+        output = currentBuild |> Maybe.andThen .output
+
+        _ = Debug.log "+++handleHistoryFetched+++ currentBuild" currentBuild
+        _ = Debug.log "+++handleHistoryFetched+++ output" output
+        _ = Debug.log "+++handleHistoryFetched+++ currentBuildID" id
     in
-        case ( history.pagination.nextPage, currentBuild |> Maybe.andThen (.job << .build) ) of
+        case ( history.pagination.nextPage, job ) of
             ( Nothing, _ ) ->
                 ( withBuilds, Cmd.none )
 
             ( Just page, Just job ) ->
-                ( withBuilds, Cmd.none )
+              let
+                  somelength =
+                    case output of
+                      Just something ->
+                        List.filter (isIDOfBuildEqualTo id) history.content
+                        |> List.length
+
+                      Nothing ->
+                        0
+
+                  _ = Debug.log "+++handelHistoryFetched+++ filteredListLen" somelength
+
+                  zeCmd =
+                    case somelength of
+                      0 ->
+                        Cmd.batch [ fetchBuildHistory job (Just page) ]
+                      _ ->
+                        Cmd.none
+              in
+                ( withBuilds, zeCmd )
 
             ( Just url, Nothing ) ->
                 Debug.crash "impossible"
@@ -933,23 +966,38 @@ showMoreBuilds build model =
 
         nextPage =
             model.pagination.nextPage
+
+        historyPresent =
+            List.length model.history > 0
+
+        _ = Debug.log "+++showMoreBuilds+++ nextPage job historyPresent" (nextPage, job, historyPresent)
     in
         case job of
             Nothing ->
                 Html.text ""
 
             Just job ->
+              let
+                  clickMsg =
+                      case (nextPage, historyPresent) of
+                        (Nothing, True) ->
+                          (Noop)
+                        _ ->
+                          (SwitchToNextBuilds job nextPage)
+
+                  _ = Debug.log "+++showMoreBuilds+++ clickMsg" clickMsg
+              in
                 Html.div
                     [ id "build-buttons", class "build-buttons" ]
                     [ Html.a
-                        [ onLeftClick (SwitchToNextBuilds job prevPage)
+                        [ onLeftClick (Noop)
                         , class "next"
                         , title "next"
                         ]
                         [ Html.text "<" ]
                     , Html.span [ class "label" ] [ Html.text "more" ]
                     , Html.a
-                        [ onLeftClick (SwitchToNextBuilds job nextPage)
+                        [ onLeftClick clickMsg
                         , class "prev"
                         , title "previous"
                         ]
@@ -1127,3 +1175,7 @@ updateHistory newBuild =
 getCurrentTime : Cmd Msg
 getCurrentTime =
     Task.perform ClockTick Time.now
+
+isIDOfBuildEqualTo : Int -> Concourse.Build -> Bool
+isIDOfBuildEqualTo id build =
+  id == build.id
