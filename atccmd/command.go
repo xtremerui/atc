@@ -54,18 +54,6 @@ import (
 	"github.com/tedsuo/ifrit/sigmon"
 	"github.com/xoebus/zest"
 
-	"github.com/concourse/skymarshal/provider"
-
-	// dynamically registered auth providers
-	_ "github.com/concourse/skymarshal/basicauth"
-	_ "github.com/concourse/skymarshal/bitbucket/cloud"
-	_ "github.com/concourse/skymarshal/bitbucket/server"
-	_ "github.com/concourse/skymarshal/genericoauth"
-	_ "github.com/concourse/skymarshal/github"
-	_ "github.com/concourse/skymarshal/gitlab"
-	_ "github.com/concourse/skymarshal/noauth"
-	_ "github.com/concourse/skymarshal/uaa"
-
 	// dynamically registered metric emitters
 	_ "github.com/concourse/atc/metric/emitter"
 
@@ -95,7 +83,7 @@ type ATCCommand struct {
 	PeerURL     URLFlag `long:"peer-url"     default:"http://127.0.0.1:8080" description:"URL used to reach this ATC from other ATCs in the cluster."`
 
 	Authentication atc.AuthFlags `group:"Authentication"`
-	ProviderAuth   provider.AuthConfigs
+	ProviderAuth   AuthConfigs
 
 	AuthDuration time.Duration `long:"auth-duration" default:"24h" description:"Length of time for which tokens are valid. Afterwards, users will have to log back in."`
 	OAuthBaseURL URLFlag       `long:"oauth-base-url" description:"URL used as the base of OAuth redirect URIs. If not specified, the external URL is used."`
@@ -160,6 +148,10 @@ type Migration struct {
 	CurrentDBVersion   bool `long:"current-db-version" description:"Print the current database version and exit"`
 	SupportedDBVersion bool `long:"supported-db-version" description:"Print the max supported database version and exit"`
 	MigrateDBToVersion int  `long:"migrate-db-to-version" description:"Migrate to the specified database version and exit"`
+}
+
+type AuthConfigs struct {
+	NoAuth bool `json:"noauth" long:"no-really-i-dont-want-any-auth" description:"Ignore warnings about not configuring auth"`
 }
 
 func (m *Migration) CommandProvided() bool {
@@ -289,12 +281,6 @@ func (cmd *ATCCommand) WireDynamicFlags(commandFlags *flags.Command) {
 	if credsGroup == nil {
 		panic("could not find Credential Management group for registering managers")
 	}
-
-	authConfigs := make(provider.AuthConfigs)
-	for name, p := range provider.GetProviders() {
-		authConfigs[name] = p.AddAuthGroup(authGroup)
-	}
-	cmd.ProviderAuth = authConfigs
 
 	managerConfigs := make(creds.Managers)
 	for name, p := range creds.ManagerFactories() {
@@ -500,7 +486,6 @@ func (cmd *ATCCommand) constructMembers(
 		cmd.AuthDuration,
 		cmd.isTLSEnabled(),
 		teamFactory,
-		logger,
 	})
 
 	if err != nil {
@@ -819,25 +804,14 @@ func (cmd *ATCCommand) oauthBaseURL() string {
 	return baseURL
 }
 
+func (cmd *ATCCommand) isAuthConfigured() bool {
+	return true
+}
+
 func (cmd *ATCCommand) validate() error {
 	var errs *multierror.Error
-	isConfigured := false
 
-	for name, config := range cmd.ProviderAuth {
-		if config.IsConfigured() {
-			fmt.Println("auth-provider-configured: " + name)
-
-			err := config.Validate()
-
-			if err != nil {
-				errs = multierror.Append(errs, err)
-			}
-
-			isConfigured = true
-		}
-	}
-
-	if !isConfigured {
+	if !cmd.isAuthConfigured() {
 		errs = multierror.Append(
 			errs,
 			errors.New("must configure basic auth, OAuth, UAAAuth, or provide no-auth flag"),
@@ -1000,45 +974,7 @@ func (cmd *ATCCommand) configureAuthForDefaultTeam(teamFactory db.TeamFactory) e
 		return errors.New("default team not found")
 	}
 
-	// var basicAuth *atc.BasicAuth
-	// if cmd.Authentication.BasicAuth.IsConfigured() {
-	// 	basicAuth = &atc.BasicAuth{
-	// 		BasicAuthUsername: cmd.Authentication.BasicAuth.Username,
-	// 		BasicAuthPassword: cmd.Authentication.BasicAuth.Password,
-	// 	}
-	// }
-
-	// err = team.UpdateBasicAuth(basicAuth)
-	// if err != nil {
-	// 	return err
-	// }
-
-	providers := provider.GetProviders()
-	teamAuth := make(map[string]*json.RawMessage)
-
-	for name, config := range cmd.ProviderAuth {
-
-		if config.IsConfigured() {
-			if err := config.Finalize(); err == nil {
-
-				p, found := providers[name]
-				if !found {
-					return errors.New("provider not found: " + name)
-				}
-
-				data, err := p.MarshalConfig(config)
-				if err != nil {
-					return err
-				}
-
-				teamAuth[name] = data
-			}
-		}
-	}
-
-	if len(teamAuth) > 1 {
-		delete(teamAuth, "noauth")
-	}
+	teamAuth := map[string]*json.RawMessage{}
 
 	err = team.UpdateProviderAuth(teamAuth)
 	if err != nil {

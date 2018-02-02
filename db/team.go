@@ -27,7 +27,6 @@ type Team interface {
 	Name() string
 	Admin() bool
 
-	// BasicAuth() *atc.BasicAuth
 	Auth() map[string]*json.RawMessage
 
 	Delete() error
@@ -64,7 +63,6 @@ type Team interface {
 	FindContainerOnWorker(workerName string, owner ContainerOwner) (CreatingContainer, CreatedContainer, error)
 	CreateContainer(workerName string, owner ContainerOwner, meta ContainerMetadata) (CreatingContainer, error)
 
-	// UpdateBasicAuth(basicAuth *atc.BasicAuth) error
 	UpdateProviderAuth(auth map[string]*json.RawMessage) error
 
 	CreatePipe(string, string) error
@@ -79,16 +77,12 @@ type team struct {
 	name  string
 	admin bool
 
-	// basicAuth *atc.BasicAuth
-
 	auth map[string]*json.RawMessage
 }
 
-func (t *team) ID() int      { return t.id }
-func (t *team) Name() string { return t.name }
-func (t *team) Admin() bool  { return t.admin }
-
-// func (t *team) BasicAuth() *atc.BasicAuth         { return t.basicAuth }
+func (t *team) ID() int                           { return t.id }
+func (t *team) Name() string                      { return t.name }
+func (t *team) Admin() bool                       { return t.admin }
 func (t *team) Auth() map[string]*json.RawMessage { return t.auth }
 
 func (t *team) Delete() error {
