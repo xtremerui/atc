@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/concourse/atc"
-	"github.com/concourse/skymarshal/provider"
 )
 
 var _ = Describe("Multiple ATCs", func() {
@@ -50,14 +49,14 @@ var _ = Describe("Multiple ATCs", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			defer resp.Body.Close()
-			var atcToken provider.AuthToken
+			var atcToken map[string]string
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = json.Unmarshal(body, &atcToken)
 			Expect(err).NotTo(HaveOccurred())
 
-			originalRequest.Header.Add("Authorization", atcToken.Type+" "+atcToken.Value)
+			originalRequest.Header.Add("Authorization", atcToken["type"]+" "+atcToken["value"])
 		}
 
 		createPipe := func(atcCommand *ATCCommand) atc.Pipe {
