@@ -8,6 +8,19 @@ import (
 )
 
 type FakePipelineFactory struct {
+	TeamPipelinesStub        func(teamIDs ...int) ([]db.Pipeline, error)
+	teamPipelinesMutex       sync.RWMutex
+	teamPipelinesArgsForCall []struct {
+		teamIDs []int
+	}
+	teamPipelinesReturns struct {
+		result1 []db.Pipeline
+		result2 error
+	}
+	teamPipelinesReturnsOnCall map[int]struct {
+		result1 []db.Pipeline
+		result2 error
+	}
 	PublicPipelinesStub        func() ([]db.Pipeline, error)
 	publicPipelinesMutex       sync.RWMutex
 	publicPipelinesArgsForCall []struct{}
@@ -32,6 +45,57 @@ type FakePipelineFactory struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakePipelineFactory) TeamPipelines(teamIDs ...int) ([]db.Pipeline, error) {
+	fake.teamPipelinesMutex.Lock()
+	ret, specificReturn := fake.teamPipelinesReturnsOnCall[len(fake.teamPipelinesArgsForCall)]
+	fake.teamPipelinesArgsForCall = append(fake.teamPipelinesArgsForCall, struct {
+		teamIDs []int
+	}{teamIDs})
+	fake.recordInvocation("TeamPipelines", []interface{}{teamIDs})
+	fake.teamPipelinesMutex.Unlock()
+	if fake.TeamPipelinesStub != nil {
+		return fake.TeamPipelinesStub(teamIDs...)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.teamPipelinesReturns.result1, fake.teamPipelinesReturns.result2
+}
+
+func (fake *FakePipelineFactory) TeamPipelinesCallCount() int {
+	fake.teamPipelinesMutex.RLock()
+	defer fake.teamPipelinesMutex.RUnlock()
+	return len(fake.teamPipelinesArgsForCall)
+}
+
+func (fake *FakePipelineFactory) TeamPipelinesArgsForCall(i int) []int {
+	fake.teamPipelinesMutex.RLock()
+	defer fake.teamPipelinesMutex.RUnlock()
+	return fake.teamPipelinesArgsForCall[i].teamIDs
+}
+
+func (fake *FakePipelineFactory) TeamPipelinesReturns(result1 []db.Pipeline, result2 error) {
+	fake.TeamPipelinesStub = nil
+	fake.teamPipelinesReturns = struct {
+		result1 []db.Pipeline
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakePipelineFactory) TeamPipelinesReturnsOnCall(i int, result1 []db.Pipeline, result2 error) {
+	fake.TeamPipelinesStub = nil
+	if fake.teamPipelinesReturnsOnCall == nil {
+		fake.teamPipelinesReturnsOnCall = make(map[int]struct {
+			result1 []db.Pipeline
+			result2 error
+		})
+	}
+	fake.teamPipelinesReturnsOnCall[i] = struct {
+		result1 []db.Pipeline
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakePipelineFactory) PublicPipelines() ([]db.Pipeline, error) {
@@ -123,6 +187,8 @@ func (fake *FakePipelineFactory) AllPipelinesReturnsOnCall(i int, result1 []db.P
 func (fake *FakePipelineFactory) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.teamPipelinesMutex.RLock()
+	defer fake.teamPipelinesMutex.RUnlock()
 	fake.publicPipelinesMutex.RLock()
 	defer fake.publicPipelinesMutex.RUnlock()
 	fake.allPipelinesMutex.RLock()

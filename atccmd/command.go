@@ -1,14 +1,11 @@
 package atccmd
 
 import (
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
@@ -45,7 +42,6 @@ import (
 	"github.com/concourse/skymarshal"
 	"github.com/concourse/web"
 	"github.com/cppforlife/go-semi-semantic/version"
-	jwt "github.com/dgrijalva/jwt-go"
 	multierror "github.com/hashicorp/go-multierror"
 	flags "github.com/jessevdk/go-flags"
 	"github.com/tedsuo/ifrit"
@@ -53,7 +49,6 @@ import (
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
 	"github.com/xoebus/zest"
-
 	// dynamically registered metric emitters
 	_ "github.com/concourse/atc/metric/emitter"
 
@@ -82,12 +77,6 @@ type ATCCommand struct {
 	ExternalURL URLFlag `long:"external-url" default:"http://127.0.0.1:8080" description:"URL used to reach any ATC from the outside world."`
 	PeerURL     URLFlag `long:"peer-url"     default:"http://127.0.0.1:8080" description:"URL used to reach this ATC from other ATCs in the cluster."`
 
-	Authentication atc.AuthFlags `group:"Authentication"`
-	ProviderAuth   AuthConfigs
-
-	AuthDuration time.Duration `long:"auth-duration" default:"24h" description:"Length of time for which tokens are valid. Afterwards, users will have to log back in."`
-	OAuthBaseURL URLFlag       `long:"oauth-base-url" description:"URL used as the base of OAuth redirect URIs. If not specified, the external URL is used."`
-
 	Postgres PostgresConfig `group:"PostgreSQL Configuration" namespace:"postgres"`
 
 	CredentialManagement struct{} `group:"Credential Management"`
@@ -98,8 +87,6 @@ type ATCCommand struct {
 
 	DebugBindIP   IPFlag `long:"debug-bind-ip"   default:"127.0.0.1" description:"IP address on which to listen for the pprof debugger endpoints."`
 	DebugBindPort uint16 `long:"debug-bind-port" default:"8079"      description:"Port on which to listen for the pprof debugger endpoints."`
-
-	SessionSigningKey FileFlag `long:"session-signing-key" description:"File containing an RSA private key, used to sign session tokens."`
 
 	InterceptIdleTimeout              time.Duration `long:"intercept-idle-timeout" default:"0m" description:"Length of time for a intercepted session to be idle before terminating."`
 	ResourceCheckingInterval          time.Duration `long:"resource-checking-interval" default:"1m" description:"Interval on which to check for new versions of resources."`
@@ -142,16 +129,41 @@ type ATCCommand struct {
 	BuildTrackerInterval time.Duration `long:"build-tracker-interval" default:"10s" description:"Interval on which to run build tracking."`
 
 	TelemetryOptIn bool `long:"telemetry-opt-in" hidden:"true" description:"Enable anonymous concourse version reporting."`
+
+	Authentication struct {
+		AuthFlags skymarshal.AuthFlags
+		TeamFlags TeamFlags `group:"Default Team" namespace:"default-team"`
+	} `group:"Authentication"`
+}
+
+type TeamFlags struct {
+	Users  []string `json:"users" long:"user" description:"List of auth users"`
+	Groups []string `json:"groups" long:"group" description:"List of auth groups"`
+	NoAuth bool     `long:"no-really-i-dont-want-any-auth" description:"Flag to disable any authorization method for your team"`
+}
+
+func (config TeamFlags) IsValid() bool {
+	return config.NoAuth || len(config.Users) > 0 || len(config.Groups) > 0
+}
+
+func (config TeamFlags) toMap() map[string][]string {
+	auth := map[string][]string{}
+
+	if len(config.Users) > 0 {
+		auth["users"] = config.Users
+	}
+
+	if len(config.Groups) > 0 {
+		auth["groups"] = config.Groups
+	}
+
+	return auth
 }
 
 type Migration struct {
 	CurrentDBVersion   bool `long:"current-db-version" description:"Print the current database version and exit"`
 	SupportedDBVersion bool `long:"supported-db-version" description:"Print the max supported database version and exit"`
 	MigrateDBToVersion int  `long:"migrate-db-to-version" description:"Migrate to the specified database version and exit"`
-}
-
-type AuthConfigs struct {
-	NoAuth bool `json:"noauth" long:"no-really-i-dont-want-any-auth" description:"Ignore warnings about not configuring auth"`
 }
 
 func (m *Migration) CommandProvided() bool {
@@ -251,16 +263,16 @@ func (cmd *ATCCommand) WireDynamicFlags(commandFlags *flags.Command) {
 	for i := 0; i < len(groups); i++ {
 		group := groups[i]
 
-		if authGroup == nil && group.ShortDescription == "Authentication" {
-			authGroup = group
-		}
-
 		if credsGroup == nil && group.ShortDescription == "Credential Management" {
 			credsGroup = group
 		}
 
 		if metricsGroup == nil && group.ShortDescription == "Metrics & Diagnostics" {
 			metricsGroup = group
+		}
+
+		if authGroup == nil && group.ShortDescription == "Authentication" {
+			authGroup = group
 		}
 
 		if metricsGroup != nil && authGroup != nil && credsGroup != nil {
@@ -289,7 +301,6 @@ func (cmd *ATCCommand) WireDynamicFlags(commandFlags *flags.Command) {
 	cmd.CredentialManagers = managerConfigs
 
 	metric.WireEmitters(metricsGroup)
-
 }
 
 func (cmd *ATCCommand) Execute(args []string) error {
@@ -372,11 +383,11 @@ func (cmd *ATCCommand) constructMembers(
 
 	dbConn, err := cmd.constructDBConn(retryingDriverName, logger, newKey, oldKey, maxConns, connectionName, lockFactory)
 	if err != nil {
+		fmt.Println("error creating db", err.Error())
 		return nil, err
 	}
 
 	bus := dbConn.Bus()
-
 	teamFactory := db.NewTeamFactory(dbConn, lockFactory)
 	dbBuildFactory := db.NewBuildFactory(dbConn, lockFactory)
 	dbVolumeFactory := db.NewVolumeFactory(dbConn)
@@ -439,17 +450,22 @@ func (cmd *ATCCommand) constructMembers(
 		variablesFactory,
 	)
 
-	signingKey, err := cmd.loadOrGenerateSigningKey()
-	if err != nil {
-		return nil, err
-	}
-
 	_, err = teamFactory.CreateDefaultTeamIfNotExists()
 	if err != nil {
 		return nil, err
 	}
 
 	err = cmd.configureAuthForDefaultTeam(teamFactory)
+	if err != nil {
+		return nil, err
+	}
+
+	authHandler, err := skymarshal.NewServer(&skymarshal.Config{
+		cmd.ExternalURL.String(),
+		cmd.isTLSEnabled(),
+		teamFactory,
+		cmd.Authentication.AuthFlags,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -465,7 +481,7 @@ func (cmd *ATCCommand) constructMembers(
 		dbVolumeFactory,
 		dbContainerRepository,
 		dbBuildFactory,
-		signingKey,
+		authHandler.PublicKey(),
 		engine,
 		workerClient,
 		workerProvider,
@@ -474,20 +490,6 @@ func (cmd *ATCCommand) constructMembers(
 		radarScannerFactory,
 		variablesFactory,
 	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	authHandler, err := skymarshal.NewHandler(&skymarshal.Config{
-		cmd.ExternalURL.String(),
-		cmd.oauthBaseURL(),
-		signingKey,
-		cmd.AuthDuration,
-		cmd.isTLSEnabled(),
-		teamFactory,
-	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -796,27 +798,8 @@ func onReady(runner ifrit.Runner, cb func()) ifrit.Runner {
 	})
 }
 
-func (cmd *ATCCommand) oauthBaseURL() string {
-	baseURL := cmd.OAuthBaseURL.String()
-	if baseURL == "" {
-		baseURL = cmd.ExternalURL.String()
-	}
-	return baseURL
-}
-
-func (cmd *ATCCommand) isAuthConfigured() bool {
-	return true
-}
-
 func (cmd *ATCCommand) validate() error {
 	var errs *multierror.Error
-
-	if !cmd.isAuthConfigured() {
-		errs = multierror.Append(
-			errs,
-			errors.New("must configure basic auth, OAuth, UAAAuth, or provide no-auth flag"),
-		)
-	}
 
 	tlsFlagCount := 0
 	if cmd.TLSBindPort != 0 {
@@ -939,31 +922,6 @@ func (cmd *ATCCommand) constructWorkerPool(
 	)
 }
 
-func (cmd *ATCCommand) loadOrGenerateSigningKey() (*rsa.PrivateKey, error) {
-	var signingKey *rsa.PrivateKey
-
-	if cmd.SessionSigningKey == "" {
-		generatedKey, err := rsa.GenerateKey(rand.Reader, 2048)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate session signing key: %s", err)
-		}
-
-		signingKey = generatedKey
-	} else {
-		rsaKeyBlob, err := ioutil.ReadFile(string(cmd.SessionSigningKey))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read session signing key file: %s", err)
-		}
-
-		signingKey, err = jwt.ParseRSAPrivateKeyFromPEM(rsaKeyBlob)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse session signing key as RSA: %s", err)
-		}
-	}
-
-	return signingKey, nil
-}
-
 func (cmd *ATCCommand) configureAuthForDefaultTeam(teamFactory db.TeamFactory) error {
 	team, found, err := teamFactory.FindTeam(atc.DefaultTeamName)
 	if err != nil {
@@ -974,7 +932,11 @@ func (cmd *ATCCommand) configureAuthForDefaultTeam(teamFactory db.TeamFactory) e
 		return errors.New("default team not found")
 	}
 
-	teamAuth := map[string]*json.RawMessage{}
+	if !cmd.Authentication.TeamFlags.IsValid() {
+		return errors.New("default team auth not configured")
+	}
+
+	teamAuth := cmd.Authentication.TeamFlags.toMap()
 
 	err = team.UpdateProviderAuth(teamAuth)
 	if err != nil {
@@ -1018,8 +980,7 @@ func (cmd *ATCCommand) constructHTTPHandler(
 ) http.Handler {
 	webMux := http.NewServeMux()
 	webMux.Handle("/api/v1/", apiHandler)
-	webMux.Handle("/oauth/", authHandler)
-	webMux.Handle("/auth/", authHandler)
+	webMux.Handle("/sky/", authHandler)
 	webMux.Handle("/", webHandler)
 
 	httpHandler := wrappa.LoggerHandler{
@@ -1048,7 +1009,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 	dbVolumeFactory db.VolumeFactory,
 	dbContainerRepository db.ContainerRepository,
 	dbBuildFactory db.BuildFactory,
-	signingKey *rsa.PrivateKey,
+	publicKey rsa.PublicKey,
 	engine engine.Engine,
 	workerClient worker.Client,
 	workerProvider worker.WorkerProvider,
@@ -1066,8 +1027,8 @@ func (cmd *ATCCommand) constructAPIHandler(
 	apiWrapper := wrappa.MultiWrappa{
 		wrappa.NewAPIMetricsWrappa(logger),
 		wrappa.NewAPIAuthWrappa(
-			auth.JWTValidator{PublicKey: &signingKey.PublicKey},
-			auth.JWTReader{PublicKey: &signingKey.PublicKey},
+			auth.JWTValidator{PublicKey: &publicKey},
+			auth.JWTReader{PublicKey: &publicKey},
 			checkPipelineAccessHandlerFactory,
 			checkBuildReadAccessHandlerFactory,
 			checkBuildWriteAccessHandlerFactory,
@@ -1080,8 +1041,6 @@ func (cmd *ATCCommand) constructAPIHandler(
 		logger,
 		cmd.ExternalURL.String(),
 		apiWrapper,
-
-		cmd.oauthBaseURL(),
 
 		teamFactory,
 		dbPipelineFactory,
@@ -1101,8 +1060,6 @@ func (cmd *ATCCommand) constructAPIHandler(
 		radarScannerFactory,
 
 		reconfigurableSink,
-
-		cmd.AuthDuration,
 
 		cmd.isTLSEnabled(),
 

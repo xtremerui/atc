@@ -136,8 +136,6 @@ var _ = BeforeEach(func() {
 
 	sink = lager.NewReconfigurableSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG), lager.DEBUG)
 
-	expire = 24 * time.Hour
-
 	isTLSEnabled = false
 
 	build = new(dbfakes.FakeBuild)
@@ -164,8 +162,6 @@ var _ = BeforeEach(func() {
 			checkWorkerTeamAccessHandlerFactory,
 		),
 
-		oAuthBaseURL,
-
 		dbTeamFactory,
 		dbPipelineFactory,
 		dbWorkerFactory,
@@ -185,8 +181,6 @@ var _ = BeforeEach(func() {
 		fakeScannerFactory,
 
 		sink,
-
-		expire,
 
 		isTLSEnabled,
 

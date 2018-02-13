@@ -27,7 +27,7 @@ type Team interface {
 	Name() string
 	Admin() bool
 
-	Auth() map[string]*json.RawMessage
+	Auth() map[string][]string
 
 	Delete() error
 	Rename(string) error
@@ -63,7 +63,7 @@ type Team interface {
 	FindContainerOnWorker(workerName string, owner ContainerOwner) (CreatingContainer, CreatedContainer, error)
 	CreateContainer(workerName string, owner ContainerOwner, meta ContainerMetadata) (CreatingContainer, error)
 
-	UpdateProviderAuth(auth map[string]*json.RawMessage) error
+	UpdateProviderAuth(auth map[string][]string) error
 
 	CreatePipe(string, string) error
 	GetPipe(string) (Pipe, error)
@@ -77,13 +77,13 @@ type team struct {
 	name  string
 	admin bool
 
-	auth map[string]*json.RawMessage
+	auth map[string][]string
 }
 
-func (t *team) ID() int                           { return t.id }
-func (t *team) Name() string                      { return t.name }
-func (t *team) Admin() bool                       { return t.admin }
-func (t *team) Auth() map[string]*json.RawMessage { return t.auth }
+func (t *team) ID() int                   { return t.id }
+func (t *team) Name() string              { return t.name }
+func (t *team) Admin() bool               { return t.admin }
+func (t *team) Auth() map[string][]string { return t.auth }
 
 func (t *team) Delete() error {
 	tx, err := t.conn.Begin()
@@ -763,25 +763,7 @@ func (t *team) SaveWorker(atcWorker atc.Worker, ttl time.Duration) (Worker, erro
 	return savedWorker, nil
 }
 
-// func (t *team) UpdateBasicAuth(basicAuth *atc.BasicAuth) error {
-// 	encryptedBasicAuth, err := encryptedJSON(basicAuth)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	query := `
-// 		UPDATE teams
-// 		SET basic_auth = $1
-// 		WHERE id = $2
-// 		RETURNING id, name, admin, basic_auth, auth, nonce
-// 	`
-
-// 	params := []interface{}{encryptedBasicAuth, t.id}
-
-// 	return t.queryTeam(query, params)
-// }
-
-func (t *team) UpdateProviderAuth(auth map[string]*json.RawMessage) error {
+func (t *team) UpdateProviderAuth(auth map[string][]string) error {
 	jsonEncodedProviderAuth, err := json.Marshal(auth)
 	if err != nil {
 		return err

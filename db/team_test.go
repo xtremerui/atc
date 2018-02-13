@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"encoding/json"
 	"strconv"
 	"time"
 
@@ -702,77 +701,20 @@ var _ = Describe("Team", func() {
 
 	Describe("Updating Auth", func() {
 		var (
-			// basicAuth    *atc.BasicAuth
-			authProvider map[string]*json.RawMessage
+			authProvider map[string][]string
 		)
 
 		BeforeEach(func() {
-			// basicAuth = &atc.BasicAuth{
-			// 	BasicAuthUsername: "fake user",
-			// 	BasicAuthPassword: "no, bad",
-			// }
-
-			data := []byte(`{"credit_card":"please"}`)
-			authProvider = map[string]*json.RawMessage{
-				"fake-provider": (*json.RawMessage)(&data),
+			authProvider = map[string][]string{
+				"users": []string{"provider:user"},
 			}
 		})
-
-		// Describe("UpdateBasicAuth", func() {
-		// 	It("saves basic auth team info without overwriting the provider auth", func() {
-		// 		err := team.UpdateProviderAuth(authProvider)
-		// 		Expect(err).ToNot(HaveOccurred())
-
-		// 		err = team.UpdateBasicAuth(basicAuth)
-		// 		Expect(err).ToNot(HaveOccurred())
-
-		// 		Expect(team.Auth()).To(Equal(authProvider))
-		// 	})
-
-		// 	It("saves basic auth team info to the existing team", func() {
-		// 		err := team.UpdateBasicAuth(basicAuth)
-		// 		Expect(err).ToNot(HaveOccurred())
-
-		// 		Expect(team.BasicAuth().BasicAuthUsername).To(Equal(basicAuth.BasicAuthUsername))
-		// 		Expect(bcrypt.CompareHashAndPassword([]byte(team.BasicAuth().BasicAuthPassword),
-		// 			[]byte(basicAuth.BasicAuthPassword))).To(BeNil())
-		// 	})
-
-		// 	It("nulls basic auth when has a blank username", func() {
-		// 		basicAuth.BasicAuthUsername = ""
-		// 		err := team.UpdateBasicAuth(basicAuth)
-		// 		Expect(err).ToNot(HaveOccurred())
-
-		// 		Expect(team.BasicAuth()).To(BeNil())
-		// 	})
-
-		// 	It("nulls basic auth when has a blank password", func() {
-		// 		basicAuth.BasicAuthPassword = ""
-		// 		err := team.UpdateBasicAuth(basicAuth)
-		// 		Expect(err).ToNot(HaveOccurred())
-
-		// 		Expect(team.BasicAuth()).To(BeNil())
-		// 	})
-		// })
 
 		Describe("UpdateProviderAuth", func() {
 			It("saves auth team info to the existing team", func() {
 				err := team.UpdateProviderAuth(authProvider)
 				Expect(err).ToNot(HaveOccurred())
-
 				Expect(team.Auth()).To(Equal(authProvider))
-			})
-
-			It("saves github auth team info without over writing the basic auth", func() {
-				// err := team.UpdateBasicAuth(basicAuth)
-				// Expect(err).ToNot(HaveOccurred())
-
-				err := team.UpdateProviderAuth(authProvider)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Expect(team.BasicAuth().BasicAuthUsername).To(Equal(basicAuth.BasicAuthUsername))
-				// Expect(bcrypt.CompareHashAndPassword([]byte(team.BasicAuth().BasicAuthPassword),
-				// 	[]byte(basicAuth.BasicAuthPassword))).To(BeNil())
 			})
 		})
 	})
