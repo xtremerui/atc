@@ -22,7 +22,7 @@ var _ = Describe("CsrfValidationHandler", func() {
 		request               *http.Request
 		response              *http.Response
 		delegateHandlerCalled bool
-		fakeUserContextReader *authfakes.FakeUserContextReader
+		tokenValidator        *authfakes.FakeTokenValidator
 		isCSRFRequired        bool
 		logger                *lagertest.TestLogger
 	)
@@ -43,11 +43,11 @@ var _ = Describe("CsrfValidationHandler", func() {
 		delegateHandlerCalled = false
 		isCSRFRequired = false
 		logger = lagertest.NewTestLogger("csrf-validation-test")
-		fakeUserContextReader = new(authfakes.FakeUserContextReader)
+		tokenValidator = new(authfakes.FakeTokenValidator)
 		csrfValidationHandler = auth.CSRFValidationHandler(
 			simpleHandler,
 			auth.UnauthorizedRejector{},
-			fakeUserContextReader,
+			tokenValidator,
 		)
 
 		server = httptest.NewServer(csrfRequiredWrapHandler)
@@ -117,7 +117,7 @@ var _ = Describe("CsrfValidationHandler", func() {
 
 			Context("when auth token does not contain CSRF", func() {
 				BeforeEach(func() {
-					fakeUserContextReader.GetCSRFTokenReturns("", false)
+					tokenValidator.GetCSRFTokenReturns("", false)
 				})
 
 				It("returns 401 Bad Request", func() {
@@ -131,7 +131,7 @@ var _ = Describe("CsrfValidationHandler", func() {
 
 			Context("when auth token contains non-matching CSRF", func() {
 				BeforeEach(func() {
-					fakeUserContextReader.GetCSRFTokenReturns("some-other-csrf", true)
+					tokenValidator.GetCSRFTokenReturns("some-other-csrf", true)
 				})
 
 				It("returns 401 Not Authorized", func() {
@@ -145,7 +145,7 @@ var _ = Describe("CsrfValidationHandler", func() {
 
 			Context("when auth token contains matching CSRF", func() {
 				BeforeEach(func() {
-					fakeUserContextReader.GetCSRFTokenReturns("some-csrf-token", true)
+					tokenValidator.GetCSRFTokenReturns("some-csrf-token", true)
 				})
 
 				It("returns 200 OK", func() {

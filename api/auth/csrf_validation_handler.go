@@ -9,19 +9,19 @@ import (
 func CSRFValidationHandler(
 	handler http.Handler,
 	rejector Rejector,
-	userContextReader UserContextReader,
+	tokenValidator TokenValidator,
 ) http.Handler {
 	return csrfValidationHandler{
-		handler:           handler,
-		rejector:          rejector,
-		userContextReader: userContextReader,
+		handler:        handler,
+		rejector:       rejector,
+		tokenValidator: tokenValidator,
 	}
 }
 
 type csrfValidationHandler struct {
-	handler           http.Handler
-	rejector          Rejector
-	userContextReader UserContextReader
+	handler        http.Handler
+	rejector       Rejector
+	tokenValidator TokenValidator
 }
 
 func (h csrfValidationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ func (h csrfValidationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 				return
 			}
 
-			authCSRFToken, authCSRFTokenProvided := h.userContextReader.GetCSRFToken(r)
+			authCSRFToken, authCSRFTokenProvided := h.tokenValidator.GetCSRFToken(r)
 			if !authCSRFTokenProvided {
 				logger.Debug("csrf-is-not-provided-in-auth-token")
 				h.rejector.Unauthorized(w, r)

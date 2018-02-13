@@ -8,7 +8,18 @@ import (
 	"github.com/concourse/atc/api/auth"
 )
 
-type FakeUserContextReader struct {
+type FakeTokenValidator struct {
+	IsAuthenticatedStub        func(r *http.Request) bool
+	isAuthenticatedMutex       sync.RWMutex
+	isAuthenticatedArgsForCall []struct {
+		r *http.Request
+	}
+	isAuthenticatedReturns struct {
+		result1 bool
+	}
+	isAuthenticatedReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	GetTeamStub        func(r *http.Request) (string, bool, bool)
 	getTeamMutex       sync.RWMutex
 	getTeamArgsForCall []struct {
@@ -54,7 +65,55 @@ type FakeUserContextReader struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeUserContextReader) GetTeam(r *http.Request) (string, bool, bool) {
+func (fake *FakeTokenValidator) IsAuthenticated(r *http.Request) bool {
+	fake.isAuthenticatedMutex.Lock()
+	ret, specificReturn := fake.isAuthenticatedReturnsOnCall[len(fake.isAuthenticatedArgsForCall)]
+	fake.isAuthenticatedArgsForCall = append(fake.isAuthenticatedArgsForCall, struct {
+		r *http.Request
+	}{r})
+	fake.recordInvocation("IsAuthenticated", []interface{}{r})
+	fake.isAuthenticatedMutex.Unlock()
+	if fake.IsAuthenticatedStub != nil {
+		return fake.IsAuthenticatedStub(r)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.isAuthenticatedReturns.result1
+}
+
+func (fake *FakeTokenValidator) IsAuthenticatedCallCount() int {
+	fake.isAuthenticatedMutex.RLock()
+	defer fake.isAuthenticatedMutex.RUnlock()
+	return len(fake.isAuthenticatedArgsForCall)
+}
+
+func (fake *FakeTokenValidator) IsAuthenticatedArgsForCall(i int) *http.Request {
+	fake.isAuthenticatedMutex.RLock()
+	defer fake.isAuthenticatedMutex.RUnlock()
+	return fake.isAuthenticatedArgsForCall[i].r
+}
+
+func (fake *FakeTokenValidator) IsAuthenticatedReturns(result1 bool) {
+	fake.IsAuthenticatedStub = nil
+	fake.isAuthenticatedReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *FakeTokenValidator) IsAuthenticatedReturnsOnCall(i int, result1 bool) {
+	fake.IsAuthenticatedStub = nil
+	if fake.isAuthenticatedReturnsOnCall == nil {
+		fake.isAuthenticatedReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isAuthenticatedReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *FakeTokenValidator) GetTeam(r *http.Request) (string, bool, bool) {
 	fake.getTeamMutex.Lock()
 	ret, specificReturn := fake.getTeamReturnsOnCall[len(fake.getTeamArgsForCall)]
 	fake.getTeamArgsForCall = append(fake.getTeamArgsForCall, struct {
@@ -71,19 +130,19 @@ func (fake *FakeUserContextReader) GetTeam(r *http.Request) (string, bool, bool)
 	return fake.getTeamReturns.result1, fake.getTeamReturns.result2, fake.getTeamReturns.result3
 }
 
-func (fake *FakeUserContextReader) GetTeamCallCount() int {
+func (fake *FakeTokenValidator) GetTeamCallCount() int {
 	fake.getTeamMutex.RLock()
 	defer fake.getTeamMutex.RUnlock()
 	return len(fake.getTeamArgsForCall)
 }
 
-func (fake *FakeUserContextReader) GetTeamArgsForCall(i int) *http.Request {
+func (fake *FakeTokenValidator) GetTeamArgsForCall(i int) *http.Request {
 	fake.getTeamMutex.RLock()
 	defer fake.getTeamMutex.RUnlock()
 	return fake.getTeamArgsForCall[i].r
 }
 
-func (fake *FakeUserContextReader) GetTeamReturns(result1 string, result2 bool, result3 bool) {
+func (fake *FakeTokenValidator) GetTeamReturns(result1 string, result2 bool, result3 bool) {
 	fake.GetTeamStub = nil
 	fake.getTeamReturns = struct {
 		result1 string
@@ -92,7 +151,7 @@ func (fake *FakeUserContextReader) GetTeamReturns(result1 string, result2 bool, 
 	}{result1, result2, result3}
 }
 
-func (fake *FakeUserContextReader) GetTeamReturnsOnCall(i int, result1 string, result2 bool, result3 bool) {
+func (fake *FakeTokenValidator) GetTeamReturnsOnCall(i int, result1 string, result2 bool, result3 bool) {
 	fake.GetTeamStub = nil
 	if fake.getTeamReturnsOnCall == nil {
 		fake.getTeamReturnsOnCall = make(map[int]struct {
@@ -108,7 +167,7 @@ func (fake *FakeUserContextReader) GetTeamReturnsOnCall(i int, result1 string, r
 	}{result1, result2, result3}
 }
 
-func (fake *FakeUserContextReader) GetSystem(r *http.Request) (bool, bool) {
+func (fake *FakeTokenValidator) GetSystem(r *http.Request) (bool, bool) {
 	fake.getSystemMutex.Lock()
 	ret, specificReturn := fake.getSystemReturnsOnCall[len(fake.getSystemArgsForCall)]
 	fake.getSystemArgsForCall = append(fake.getSystemArgsForCall, struct {
@@ -125,19 +184,19 @@ func (fake *FakeUserContextReader) GetSystem(r *http.Request) (bool, bool) {
 	return fake.getSystemReturns.result1, fake.getSystemReturns.result2
 }
 
-func (fake *FakeUserContextReader) GetSystemCallCount() int {
+func (fake *FakeTokenValidator) GetSystemCallCount() int {
 	fake.getSystemMutex.RLock()
 	defer fake.getSystemMutex.RUnlock()
 	return len(fake.getSystemArgsForCall)
 }
 
-func (fake *FakeUserContextReader) GetSystemArgsForCall(i int) *http.Request {
+func (fake *FakeTokenValidator) GetSystemArgsForCall(i int) *http.Request {
 	fake.getSystemMutex.RLock()
 	defer fake.getSystemMutex.RUnlock()
 	return fake.getSystemArgsForCall[i].r
 }
 
-func (fake *FakeUserContextReader) GetSystemReturns(result1 bool, result2 bool) {
+func (fake *FakeTokenValidator) GetSystemReturns(result1 bool, result2 bool) {
 	fake.GetSystemStub = nil
 	fake.getSystemReturns = struct {
 		result1 bool
@@ -145,7 +204,7 @@ func (fake *FakeUserContextReader) GetSystemReturns(result1 bool, result2 bool) 
 	}{result1, result2}
 }
 
-func (fake *FakeUserContextReader) GetSystemReturnsOnCall(i int, result1 bool, result2 bool) {
+func (fake *FakeTokenValidator) GetSystemReturnsOnCall(i int, result1 bool, result2 bool) {
 	fake.GetSystemStub = nil
 	if fake.getSystemReturnsOnCall == nil {
 		fake.getSystemReturnsOnCall = make(map[int]struct {
@@ -159,7 +218,7 @@ func (fake *FakeUserContextReader) GetSystemReturnsOnCall(i int, result1 bool, r
 	}{result1, result2}
 }
 
-func (fake *FakeUserContextReader) GetCSRFToken(r *http.Request) (string, bool) {
+func (fake *FakeTokenValidator) GetCSRFToken(r *http.Request) (string, bool) {
 	fake.getCSRFTokenMutex.Lock()
 	ret, specificReturn := fake.getCSRFTokenReturnsOnCall[len(fake.getCSRFTokenArgsForCall)]
 	fake.getCSRFTokenArgsForCall = append(fake.getCSRFTokenArgsForCall, struct {
@@ -176,19 +235,19 @@ func (fake *FakeUserContextReader) GetCSRFToken(r *http.Request) (string, bool) 
 	return fake.getCSRFTokenReturns.result1, fake.getCSRFTokenReturns.result2
 }
 
-func (fake *FakeUserContextReader) GetCSRFTokenCallCount() int {
+func (fake *FakeTokenValidator) GetCSRFTokenCallCount() int {
 	fake.getCSRFTokenMutex.RLock()
 	defer fake.getCSRFTokenMutex.RUnlock()
 	return len(fake.getCSRFTokenArgsForCall)
 }
 
-func (fake *FakeUserContextReader) GetCSRFTokenArgsForCall(i int) *http.Request {
+func (fake *FakeTokenValidator) GetCSRFTokenArgsForCall(i int) *http.Request {
 	fake.getCSRFTokenMutex.RLock()
 	defer fake.getCSRFTokenMutex.RUnlock()
 	return fake.getCSRFTokenArgsForCall[i].r
 }
 
-func (fake *FakeUserContextReader) GetCSRFTokenReturns(result1 string, result2 bool) {
+func (fake *FakeTokenValidator) GetCSRFTokenReturns(result1 string, result2 bool) {
 	fake.GetCSRFTokenStub = nil
 	fake.getCSRFTokenReturns = struct {
 		result1 string
@@ -196,7 +255,7 @@ func (fake *FakeUserContextReader) GetCSRFTokenReturns(result1 string, result2 b
 	}{result1, result2}
 }
 
-func (fake *FakeUserContextReader) GetCSRFTokenReturnsOnCall(i int, result1 string, result2 bool) {
+func (fake *FakeTokenValidator) GetCSRFTokenReturnsOnCall(i int, result1 string, result2 bool) {
 	fake.GetCSRFTokenStub = nil
 	if fake.getCSRFTokenReturnsOnCall == nil {
 		fake.getCSRFTokenReturnsOnCall = make(map[int]struct {
@@ -210,9 +269,11 @@ func (fake *FakeUserContextReader) GetCSRFTokenReturnsOnCall(i int, result1 stri
 	}{result1, result2}
 }
 
-func (fake *FakeUserContextReader) Invocations() map[string][][]interface{} {
+func (fake *FakeTokenValidator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.isAuthenticatedMutex.RLock()
+	defer fake.isAuthenticatedMutex.RUnlock()
 	fake.getTeamMutex.RLock()
 	defer fake.getTeamMutex.RUnlock()
 	fake.getSystemMutex.RLock()
@@ -226,7 +287,7 @@ func (fake *FakeUserContextReader) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeUserContextReader) recordInvocation(key string, args []interface{}) {
+func (fake *FakeTokenValidator) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -238,4 +299,4 @@ func (fake *FakeUserContextReader) recordInvocation(key string, args []interface
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ auth.UserContextReader = new(FakeUserContextReader)
+var _ auth.TokenValidator = new(FakeTokenValidator)

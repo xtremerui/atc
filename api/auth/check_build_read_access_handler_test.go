@@ -24,8 +24,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		handlerFactory auth.CheckBuildReadAccessHandlerFactory
 		handler        http.Handler
 
-		authValidator     *authfakes.FakeValidator
-		userContextReader *authfakes.FakeUserContextReader
+		tokenValidator *authfakes.FakeTokenValidator
 
 		build    *dbfakes.FakeBuild
 		pipeline *dbfakes.FakePipeline
@@ -35,8 +34,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		buildFactory = new(dbfakes.FakeBuildFactory)
 		handlerFactory = auth.NewCheckBuildReadAccessHandlerFactory(buildFactory)
 
-		authValidator = new(authfakes.FakeValidator)
-		userContextReader = new(authfakes.FakeUserContextReader)
+		tokenValidator = new(authfakes.FakeTokenValidator)
 
 		delegate = &buildDelegateHandler{}
 
@@ -105,13 +103,13 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 	Context("AnyJobHandler", func() {
 		BeforeEach(func() {
 			checkBuildReadAccessHandler := handlerFactory.AnyJobHandler(delegate, auth.UnauthorizedRejector{})
-			handler = auth.WrapHandler(checkBuildReadAccessHandler, authValidator, userContextReader)
+			handler = auth.WrapHandler(checkBuildReadAccessHandler, tokenValidator)
 		})
 
 		Context("when authenticated and accessing same team's build", func() {
 			BeforeEach(func() {
-				authValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				tokenValidator.IsAuthenticatedReturns(true)
+				tokenValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			WithExistingBuild(ItReturnsTheBuild)
@@ -119,8 +117,8 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 
 		Context("when authenticated but accessing different team's build", func() {
 			BeforeEach(func() {
-				authValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("other-team-name", false, true)
+				tokenValidator.IsAuthenticatedReturns(true)
+				tokenValidator.GetTeamReturns("other-team-name", false, true)
 			})
 
 			WithExistingBuild(func() {
@@ -148,8 +146,8 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
-				authValidator.IsAuthenticatedReturns(false)
-				userContextReader.GetTeamReturns("", false, false)
+				tokenValidator.IsAuthenticatedReturns(false)
+				tokenValidator.GetTeamReturns("", false, false)
 			})
 
 			WithExistingBuild(func() {
@@ -182,7 +180,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		BeforeEach(func() {
 			fakeJob = new(dbfakes.FakeJob)
 			checkBuildReadAccessHandler := handlerFactory.CheckIfPrivateJobHandler(delegate, auth.UnauthorizedRejector{})
-			handler = auth.WrapHandler(checkBuildReadAccessHandler, authValidator, userContextReader)
+			handler = auth.WrapHandler(checkBuildReadAccessHandler, tokenValidator)
 		})
 
 		ItChecksIfJobIsPrivate := func(status int) {
@@ -257,8 +255,8 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 
 		Context("when authenticated and accessing same team's build", func() {
 			BeforeEach(func() {
-				authValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				tokenValidator.IsAuthenticatedReturns(true)
+				tokenValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			WithExistingBuild(ItReturnsTheBuild)
@@ -266,8 +264,8 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 
 		Context("when authenticated but accessing different team's build", func() {
 			BeforeEach(func() {
-				authValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("other-team-name", false, true)
+				tokenValidator.IsAuthenticatedReturns(true)
+				tokenValidator.GetTeamReturns("other-team-name", false, true)
 			})
 
 			WithExistingBuild(func() {
@@ -277,8 +275,8 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
-				authValidator.IsAuthenticatedReturns(false)
-				userContextReader.GetTeamReturns("", false, false)
+				tokenValidator.IsAuthenticatedReturns(false)
+				tokenValidator.GetTeamReturns("", false, false)
 			})
 
 			WithExistingBuild(func() {

@@ -7,19 +7,30 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
-//go:generate counterfeiter . UserContextReader
-type UserContextReader interface {
+//go:generate counterfeiter . TokenValidator
+
+type TokenValidator interface {
+	IsAuthenticated(r *http.Request) bool
 	GetTeam(r *http.Request) (string, bool, bool)
 	GetSystem(r *http.Request) (bool, bool)
 	GetCSRFToken(r *http.Request) (string, bool)
 }
 
-type JWTReader struct {
+type JWTValidator struct {
 	PublicKey *rsa.PublicKey
 }
 
-func (jr JWTReader) GetTeam(r *http.Request) (string, bool, bool) {
-	token, err := getJWT(r, jr.PublicKey)
+func (v JWTValidator) IsAuthenticated(r *http.Request) bool {
+	token, err := getJWT(r, v.PublicKey)
+	if err != nil {
+		return false
+	}
+
+	return token.Valid
+}
+
+func (v JWTValidator) GetTeam(r *http.Request) (string, bool, bool) {
+	token, err := getJWT(r, v.PublicKey)
 	if err != nil {
 		return "", false, false
 	}
@@ -38,8 +49,8 @@ func (jr JWTReader) GetTeam(r *http.Request) (string, bool, bool) {
 	return teamName, isAdmin, true
 }
 
-func (jr JWTReader) GetSystem(r *http.Request) (bool, bool) {
-	token, err := getJWT(r, jr.PublicKey)
+func (v JWTValidator) GetSystem(r *http.Request) (bool, bool) {
+	token, err := getJWT(r, v.PublicKey)
 	if err != nil {
 		return false, false
 	}
@@ -53,8 +64,8 @@ func (jr JWTReader) GetSystem(r *http.Request) (bool, bool) {
 	return isSystemInterface.(bool), true
 }
 
-func (jr JWTReader) GetCSRFToken(r *http.Request) (string, bool) {
-	token, err := getJWT(r, jr.PublicKey)
+func (v JWTValidator) GetCSRFToken(r *http.Request) (string, bool) {
+	token, err := getJWT(r, v.PublicKey)
 	if err != nil {
 		return "", false
 	}

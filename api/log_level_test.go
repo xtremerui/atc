@@ -38,7 +38,7 @@ var _ = Describe("Log Level API", func() {
 
 			Context("is admin", func() {
 				BeforeEach(func() {
-					userContextReader.GetTeamReturns("main", true, true)
+					jwtValidator.GetTeamReturns("main", true, true)
 				})
 
 				for x, y := range map[atc.LogLevel]lager.LogLevel{

@@ -33,7 +33,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when authenticated", func() {
 			BeforeEach(func() {
-				userContextReader.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamReturns("some-team", false, true)
 				jwtValidator.IsAuthenticatedReturns(true)
 			})
 
@@ -144,8 +144,8 @@ var _ = Describe("Workers API", func() {
 			}
 
 			ttl = "30s"
-			userContextReader.GetTeamReturns("some-team", true, true)
-			userContextReader.GetSystemReturns(true, true)
+			jwtValidator.GetTeamReturns("some-team", true, true)
+			jwtValidator.GetSystemReturns(true, true)
 
 			fakeGardenWorker = new(workerfakes.FakeWorker)
 			fakeWorkerProvider.NewGardenWorkerReturns(fakeGardenWorker)
@@ -193,7 +193,7 @@ var _ = Describe("Workers API", func() {
 			Context("when request is not from tsa", func() {
 				Context("when system claim is not present", func() {
 					BeforeEach(func() {
-						userContextReader.GetSystemReturns(false, false)
+						jwtValidator.GetSystemReturns(false, false)
 					})
 
 					It("return 403", func() {
@@ -203,7 +203,7 @@ var _ = Describe("Workers API", func() {
 
 				Context("when system claim is false", func() {
 					BeforeEach(func() {
-						userContextReader.GetSystemReturns(false, true)
+						jwtValidator.GetSystemReturns(false, true)
 					})
 
 					It("return 403", func() {
@@ -412,7 +412,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when the request is authenticated as system", func() {
 			BeforeEach(func() {
-				userContextReader.GetSystemReturns(true, true)
+				jwtValidator.GetSystemReturns(true, true)
 			})
 
 			It("returns 200", func() {
@@ -451,7 +451,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when the request is authenticated as the worker's owner", func() {
 			BeforeEach(func() {
-				userContextReader.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamReturns("some-team", false, true)
 			})
 
 			It("returns 200", func() {
@@ -461,7 +461,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when the request is authenticated as the wrong team", func() {
 			BeforeEach(func() {
-				userContextReader.GetTeamReturns("some-other-team", false, true)
+				jwtValidator.GetTeamReturns("some-other-team", false, true)
 			})
 
 			It("returns 403", func() {
@@ -513,7 +513,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when autheticated as system", func() {
 			BeforeEach(func() {
-				userContextReader.GetSystemReturns(true, true)
+				jwtValidator.GetSystemReturns(true, true)
 			})
 
 			It("returns 200", func() {
@@ -553,7 +553,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when autheticated as as the worker's owner", func() {
 			BeforeEach(func() {
-				userContextReader.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamReturns("some-team", false, true)
 			})
 
 			It("returns 200", func() {
@@ -563,7 +563,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when autheticated as some other team", func() {
 			BeforeEach(func() {
-				userContextReader.GetTeamReturns("some-other-team", false, true)
+				jwtValidator.GetTeamReturns("some-other-team", false, true)
 			})
 
 			It("returns 403", func() {
@@ -609,7 +609,7 @@ var _ = Describe("Workers API", func() {
 
 			dbWorkerFactory.GetWorkerReturns(fakeWorker, true, nil)
 			jwtValidator.IsAuthenticatedReturns(true)
-			userContextReader.GetTeamReturns("some-team", false, true)
+			jwtValidator.GetTeamReturns("some-team", false, true)
 			fakeWorker.PruneReturns(nil)
 		})
 

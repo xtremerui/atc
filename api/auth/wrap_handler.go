@@ -7,20 +7,17 @@ import (
 
 func WrapHandler(
 	handler http.Handler,
-	validator Validator,
-	userContextReader UserContextReader,
+	validator TokenValidator,
 ) http.Handler {
 	return authHandler{
-		handler:           handler,
-		validator:         validator,
-		userContextReader: userContextReader,
+		handler:   handler,
+		validator: validator,
 	}
 }
 
 type authHandler struct {
-	handler           http.Handler
-	validator         Validator
-	userContextReader UserContextReader
+	handler   http.Handler
+	validator TokenValidator
 }
 
 func (h authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -28,13 +25,13 @@ func (h authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	isAuthenticated := h.validator.IsAuthenticated(r)
 	ctx := context.WithValue(r.Context(), authenticated, isAuthenticated)
 
-	teamName, isAdmin, found := h.userContextReader.GetTeam(r)
+	teamName, isAdmin, found := h.validator.GetTeam(r)
 	if found {
 		ctx = context.WithValue(ctx, teamNameKey, teamName)
 		ctx = context.WithValue(ctx, isAdminKey, isAdmin)
 	}
 
-	isSystem, found := h.userContextReader.GetSystem(r)
+	isSystem, found := h.validator.GetSystem(r)
 	if found {
 		ctx = context.WithValue(ctx, isSystemKey, isSystem)
 	}

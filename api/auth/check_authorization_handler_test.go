@@ -17,9 +17,8 @@ import (
 
 var _ = Describe("CheckAuthorizationHandler", func() {
 	var (
-		fakeValidator         *authfakes.FakeValidator
-		fakeUserContextReader *authfakes.FakeUserContextReader
-		fakeRejector          *authfakes.FakeRejector
+		fakeValidator *authfakes.FakeTokenValidator
+		fakeRejector  *authfakes.FakeRejector
 
 		server *httptest.Server
 		client *http.Client
@@ -33,8 +32,7 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 	})
 
 	BeforeEach(func() {
-		fakeValidator = new(authfakes.FakeValidator)
-		fakeUserContextReader = new(authfakes.FakeUserContextReader)
+		fakeValidator = new(authfakes.FakeTokenValidator)
 		fakeRejector = new(authfakes.FakeRejector)
 
 		fakeRejector.UnauthorizedStub = func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +50,6 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 					fakeRejector,
 				),
 				fakeValidator,
-				fakeUserContextReader,
 			),
 		)
 
@@ -87,7 +84,7 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 
 			Context("when the bearer token's team matches the request's team", func() {
 				BeforeEach(func() {
-					fakeUserContextReader.GetTeamReturns("some-team", true, true)
+					fakeValidator.GetTeamReturns("some-team", true, true)
 				})
 
 				It("returns 200", func() {
@@ -103,7 +100,7 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 
 			Context("when the bearer token's team is set to something other than the request's team", func() {
 				BeforeEach(func() {
-					fakeUserContextReader.GetTeamReturns("another-team", true, true)
+					fakeValidator.GetTeamReturns("another-team", true, true)
 				})
 
 				It("returns 403", func() {
@@ -129,7 +126,7 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 
 			Context("when the bearer token is for the requested team", func() {
 				BeforeEach(func() {
-					fakeUserContextReader.GetTeamReturns("some-team", true, true)
+					fakeValidator.GetTeamReturns("some-team", true, true)
 				})
 
 				It("returns 401", func() {

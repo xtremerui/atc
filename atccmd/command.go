@@ -1028,7 +1028,6 @@ func (cmd *ATCCommand) constructAPIHandler(
 		wrappa.NewAPIMetricsWrappa(logger),
 		wrappa.NewAPIAuthWrappa(
 			auth.JWTValidator{PublicKey: &publicKey},
-			auth.JWTReader{PublicKey: &publicKey},
 			checkPipelineAccessHandlerFactory,
 			checkBuildReadAccessHandlerFactory,
 			checkBuildWriteAccessHandlerFactory,

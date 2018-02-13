@@ -84,7 +84,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				userContextReader.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamReturns("", false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -116,7 +116,7 @@ var _ = Describe("Jobs API", func() {
 
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			Context("when getting the build succeeds", func() {
@@ -314,7 +314,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				userContextReader.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamReturns("", false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -342,7 +342,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 				fakePipeline.JobReturns(fakeJob, true, nil)
 				fakeJob.NameReturns("some-job")
 			})
@@ -748,7 +748,7 @@ var _ = Describe("Jobs API", func() {
 			Context("when not authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(false)
-					userContextReader.GetTeamReturns("", false, false)
+					jwtValidator.GetTeamReturns("", false, false)
 				})
 
 				Context("and the pipeline is private", func() {
@@ -775,7 +775,7 @@ var _ = Describe("Jobs API", func() {
 			Context("when authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					userContextReader.GetTeamReturns("some-team", true, true)
+					jwtValidator.GetTeamReturns("some-team", true, true)
 				})
 
 				It("returns 200 OK", func() {
@@ -990,7 +990,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				userContextReader.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamReturns("", false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -1021,7 +1021,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			Context("when getting the job succeeds", func() {
@@ -1206,7 +1206,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			Context("when getting the job succeeds", func() {
@@ -1365,7 +1365,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			It("looked up the proper pipeline", func() {
@@ -1562,7 +1562,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			Context("when getting the job succeeds", func() {
@@ -1663,7 +1663,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				userContextReader.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamReturns("", false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -1708,7 +1708,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 
 				fakePipeline.JobReturns(fakeJob, true, nil)
 				fakeJob.PauseReturns(nil)
@@ -1781,7 +1781,7 @@ var _ = Describe("Jobs API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamReturns("some-team", true, true)
 
 				fakePipeline.JobReturns(fakeJob, true, nil)
 				fakeJob.UnpauseReturns(nil)

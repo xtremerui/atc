@@ -14,8 +14,7 @@ import (
 
 var _ = Describe("WrapHandler", func() {
 	var (
-		fakeValidator         *authfakes.FakeValidator
-		fakeUserContextReader *authfakes.FakeUserContextReader
+		fakeValidator *authfakes.FakeTokenValidator
 
 		server *httptest.Server
 		client *http.Client
@@ -29,8 +28,7 @@ var _ = Describe("WrapHandler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeValidator = new(authfakes.FakeValidator)
-		fakeUserContextReader = new(authfakes.FakeUserContextReader)
+		fakeValidator = new(authfakes.FakeTokenValidator)
 
 		a := make(chan bool, 1)
 		tn := make(chan string, 1)
@@ -64,7 +62,6 @@ var _ = Describe("WrapHandler", func() {
 		server = httptest.NewServer(auth.WrapHandler(
 			simpleHandler,
 			fakeValidator,
-			fakeUserContextReader,
 		))
 
 		client = &http.Client{
@@ -109,7 +106,7 @@ var _ = Describe("WrapHandler", func() {
 
 		Context("when the userContextReader finds team information", func() {
 			BeforeEach(func() {
-				fakeUserContextReader.GetTeamReturns("some-team", true, true)
+				fakeValidator.GetTeamReturns("some-team", true, true)
 			})
 
 			It("passes the team information along in the request object", func() {
@@ -121,7 +118,7 @@ var _ = Describe("WrapHandler", func() {
 
 		Context("when the userContextReader does not find team information", func() {
 			BeforeEach(func() {
-				fakeUserContextReader.GetTeamReturns("", false, false)
+				fakeValidator.GetTeamReturns("", false, false)
 			})
 
 			It("does not pass team information along in the request object", func() {
@@ -131,7 +128,7 @@ var _ = Describe("WrapHandler", func() {
 
 		Context("when the userContextReader finds system information", func() {
 			BeforeEach(func() {
-				fakeUserContextReader.GetSystemReturns(true, true)
+				fakeValidator.GetSystemReturns(true, true)
 			})
 
 			It("passes the system information along in the request object", func() {
@@ -142,7 +139,7 @@ var _ = Describe("WrapHandler", func() {
 
 		Context("when the userContextReader does not find system information", func() {
 			BeforeEach(func() {
-				fakeUserContextReader.GetSystemReturns(false, false)
+				fakeValidator.GetSystemReturns(false, false)
 			})
 
 			It("does not pass the system information along in the request object", func() {

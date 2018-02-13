@@ -186,7 +186,7 @@ var _ = Describe("Teams API", func() {
 		Context("when the requester team is authorized as an admin team", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("magic-admin-team", true, true)
+				jwtValidator.GetTeamReturns("magic-admin-team", true, true)
 			})
 
 			authorizedTeamTests()
@@ -222,7 +222,7 @@ var _ = Describe("Teams API", func() {
 		Context("when the requester team is authorized as the team being set", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamReturns("some-team", false, true)
 			})
 
 			authorizedTeamTests()
@@ -269,7 +269,7 @@ var _ = Describe("Teams API", func() {
 
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns(atc.DefaultTeamName, true, true)
+				jwtValidator.GetTeamReturns(atc.DefaultTeamName, true, true)
 			})
 
 			Context("when there's a problem finding teams", func() {
@@ -347,7 +347,7 @@ var _ = Describe("Teams API", func() {
 
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns(atc.DefaultTeamName, false, true)
+				jwtValidator.GetTeamReturns(atc.DefaultTeamName, false, true)
 			})
 
 			It("returns 403 forbidden", func() {
@@ -369,7 +369,7 @@ var _ = Describe("Teams API", func() {
 
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				userContextReader.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamReturns("", false, false)
 			})
 
 			It("returns 500 internal server error", func() {
@@ -406,7 +406,7 @@ var _ = Describe("Teams API", func() {
 				BeforeEach(func() {
 					teamName = "a-team"
 					fakeTeam.NameReturns(teamName)
-					userContextReader.GetTeamReturns(atc.DefaultTeamName, true, true)
+					jwtValidator.GetTeamReturns(atc.DefaultTeamName, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				})
 
@@ -429,7 +429,7 @@ var _ = Describe("Teams API", func() {
 				BeforeEach(func() {
 					teamName = "a-team"
 					fakeTeam.NameReturns(teamName)
-					userContextReader.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamReturns("a-team", true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				})
 
@@ -452,7 +452,7 @@ var _ = Describe("Teams API", func() {
 				BeforeEach(func() {
 					teamName = "a-team"
 					fakeTeam.NameReturns(teamName)
-					userContextReader.GetTeamReturns("another-team", false, true)
+					jwtValidator.GetTeamReturns("another-team", false, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				})
 

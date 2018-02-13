@@ -18,14 +18,13 @@ import (
 
 var _ = Describe("TeamScopedHandlerFactory", func() {
 	var (
-		response          *http.Response
-		server            *httptest.Server
-		delegate          *delegateHandler
-		fakeTeamFactory   *dbfakes.FakeTeamFactory
-		fakeTeam          *dbfakes.FakeTeam
-		authValidator     *authfakes.FakeValidator
-		userContextReader *authfakes.FakeUserContextReader
-		handler           http.Handler
+		response        *http.Response
+		server          *httptest.Server
+		delegate        *delegateHandler
+		fakeTeamFactory *dbfakes.FakeTeamFactory
+		fakeTeam        *dbfakes.FakeTeam
+		jwtValidator    *authfakes.FakeTokenValidator
+		handler         http.Handler
 	)
 
 	BeforeEach(func() {
@@ -40,10 +39,9 @@ var _ = Describe("TeamScopedHandlerFactory", func() {
 		handlerFactory := api.NewTeamScopedHandlerFactory(logger, fakeTeamFactory)
 		innerHandler := handlerFactory.HandlerFor(delegate.GetHandler)
 
-		authValidator = new(authfakes.FakeValidator)
-		userContextReader = new(authfakes.FakeUserContextReader)
+		jwtValidator = new(authfakes.FakeTokenValidator)
 
-		handler = auth.WrapHandler(innerHandler, authValidator, userContextReader)
+		handler = auth.WrapHandler(innerHandler, jwtValidator)
 	})
 
 	JustBeforeEach(func() {
@@ -62,8 +60,8 @@ var _ = Describe("TeamScopedHandlerFactory", func() {
 
 	Context("when team is in auth context", func() {
 		BeforeEach(func() {
-			authValidator.IsAuthenticatedReturns(true)
-			userContextReader.GetTeamReturns("some-team", false, true)
+			jwtValidator.IsAuthenticatedReturns(true)
+			jwtValidator.GetTeamReturns("some-team", false, true)
 		})
 
 		Context("when the team is not found", func() {
@@ -99,8 +97,8 @@ var _ = Describe("TeamScopedHandlerFactory", func() {
 
 	Context("when team is not in auth context", func() {
 		BeforeEach(func() {
-			authValidator.IsAuthenticatedReturns(true)
-			userContextReader.GetTeamReturns("", false, false)
+			jwtValidator.IsAuthenticatedReturns(true)
+			jwtValidator.GetTeamReturns("", false, false)
 		})
 
 		It("returns 500", func() {

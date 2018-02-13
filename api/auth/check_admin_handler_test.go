@@ -16,9 +16,8 @@ import (
 
 var _ = Describe("CheckAdminHandler", func() {
 	var (
-		fakeValidator         *authfakes.FakeValidator
-		fakeUserContextReader *authfakes.FakeUserContextReader
-		fakeRejector          *authfakes.FakeRejector
+		fakeValidator *authfakes.FakeTokenValidator
+		fakeRejector  *authfakes.FakeRejector
 
 		server *httptest.Server
 		client *http.Client
@@ -32,8 +31,7 @@ var _ = Describe("CheckAdminHandler", func() {
 	})
 
 	BeforeEach(func() {
-		fakeValidator = new(authfakes.FakeValidator)
-		fakeUserContextReader = new(authfakes.FakeUserContextReader)
+		fakeValidator = new(authfakes.FakeTokenValidator)
 		fakeRejector = new(authfakes.FakeRejector)
 
 		fakeRejector.UnauthorizedStub = func(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +48,6 @@ var _ = Describe("CheckAdminHandler", func() {
 				fakeRejector,
 			),
 			fakeValidator,
-			fakeUserContextReader,
 		))
 
 		client = &http.Client{
@@ -83,7 +80,7 @@ var _ = Describe("CheckAdminHandler", func() {
 
 			Context("when is admin", func() {
 				BeforeEach(func() {
-					fakeUserContextReader.GetTeamReturns("team-name", true, true)
+					fakeValidator.GetTeamReturns("team-name", true, true)
 				})
 
 				It("returns 200 OK", func() {

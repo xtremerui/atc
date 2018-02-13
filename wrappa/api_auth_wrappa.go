@@ -7,8 +7,7 @@ import (
 )
 
 type APIAuthWrappa struct {
-	authValidator                       auth.Validator
-	userContextReader                   auth.UserContextReader
+	tokenValidator                      auth.TokenValidator
 	checkPipelineAccessHandlerFactory   auth.CheckPipelineAccessHandlerFactory
 	checkBuildReadAccessHandlerFactory  auth.CheckBuildReadAccessHandlerFactory
 	checkBuildWriteAccessHandlerFactory auth.CheckBuildWriteAccessHandlerFactory
@@ -16,16 +15,14 @@ type APIAuthWrappa struct {
 }
 
 func NewAPIAuthWrappa(
-	authValidator auth.Validator,
-	userContextReader auth.UserContextReader,
+	tokenValidator auth.TokenValidator,
 	checkPipelineAccessHandlerFactory auth.CheckPipelineAccessHandlerFactory,
 	checkBuildReadAccessHandlerFactory auth.CheckBuildReadAccessHandlerFactory,
 	checkBuildWriteAccessHandlerFactory auth.CheckBuildWriteAccessHandlerFactory,
 	checkWorkerTeamAccessHandlerFactory auth.CheckWorkerTeamAccessHandlerFactory,
 ) *APIAuthWrappa {
 	return &APIAuthWrappa{
-		authValidator:                       authValidator,
-		userContextReader:                   userContextReader,
+		tokenValidator:                      tokenValidator,
 		checkPipelineAccessHandlerFactory:   checkPipelineAccessHandlerFactory,
 		checkBuildReadAccessHandlerFactory:  checkBuildReadAccessHandlerFactory,
 		checkBuildWriteAccessHandlerFactory: checkBuildWriteAccessHandlerFactory,
@@ -143,8 +140,8 @@ func (wrappa *APIAuthWrappa) Wrap(handlers rata.Handlers) rata.Handlers {
 			panic("you missed a spot")
 		}
 
-		newHandler = auth.WrapHandler(newHandler, wrappa.authValidator, wrappa.userContextReader)
-		wrapped[name] = auth.CSRFValidationHandler(newHandler, rejector, wrappa.userContextReader)
+		newHandler = auth.WrapHandler(newHandler, wrappa.tokenValidator)
+		wrapped[name] = auth.CSRFValidationHandler(newHandler, rejector, wrappa.tokenValidator)
 	}
 
 	return wrapped

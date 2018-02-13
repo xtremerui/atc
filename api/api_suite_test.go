@@ -34,8 +34,7 @@ var (
 	externalURL  = "https://example.com"
 	oAuthBaseURL = "https://oauth.example.com"
 
-	jwtValidator            *authfakes.FakeValidator
-	userContextReader       *authfakes.FakeUserContextReader
+	jwtValidator            *authfakes.FakeTokenValidator
 	fakeEngine              *enginefakes.FakeEngine
 	fakeWorkerClient        *workerfakes.FakeClient
 	fakeWorkerProvider      *workerfakes.FakeWorkerProvider
@@ -107,8 +106,7 @@ var _ = BeforeEach(func() {
 	dbWorkerFactory = new(dbfakes.FakeWorkerFactory)
 	dbWorkerLifecycle = new(dbfakes.FakeWorkerLifecycle)
 
-	jwtValidator = new(authfakes.FakeValidator)
-	userContextReader = new(authfakes.FakeUserContextReader)
+	jwtValidator = new(authfakes.FakeTokenValidator)
 
 	peerAddr = "127.0.0.1:1234"
 	drain = make(chan struct{})
@@ -155,7 +153,6 @@ var _ = BeforeEach(func() {
 
 		wrappa.NewAPIAuthWrappa(
 			jwtValidator,
-			userContextReader,
 			checkPipelineAccessHandlerFactory,
 			checkBuildReadAccessHandlerFactory,
 			checkBuildWriteAccessHandlerFactory,

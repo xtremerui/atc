@@ -24,8 +24,7 @@ var _ = Describe("CheckPipelineAccessHandler", func() {
 		pipeline    *dbfakes.FakePipeline
 		handler     http.Handler
 
-		authValidator     *authfakes.FakeValidator
-		userContextReader *authfakes.FakeUserContextReader
+		tokenValidator *authfakes.FakeTokenValidator
 	)
 
 	BeforeEach(func() {
@@ -37,12 +36,11 @@ var _ = Describe("CheckPipelineAccessHandler", func() {
 
 		handlerFactory := auth.NewCheckPipelineAccessHandlerFactory(teamFactory)
 
-		authValidator = new(authfakes.FakeValidator)
-		userContextReader = new(authfakes.FakeUserContextReader)
+		tokenValidator = new(authfakes.FakeTokenValidator)
 
 		delegate = &pipelineDelegateHandler{}
 		checkPipelineAccessHandler := handlerFactory.HandlerFor(delegate, auth.UnauthorizedRejector{})
-		handler = auth.WrapHandler(checkPipelineAccessHandler, authValidator, userContextReader)
+		handler = auth.WrapHandler(checkPipelineAccessHandler, tokenValidator)
 	})
 
 	JustBeforeEach(func() {
@@ -83,8 +81,8 @@ var _ = Describe("CheckPipelineAccessHandler", func() {
 		Context("when pipeline is private", func() {
 			Context("and authorized", func() {
 				BeforeEach(func() {
-					authValidator.IsAuthenticatedReturns(true)
-					userContextReader.GetTeamReturns("some-team", true, true)
+					tokenValidator.IsAuthenticatedReturns(true)
+					tokenValidator.GetTeamReturns("some-team", true, true)
 				})
 
 				It("calls pipelineScopedHandler with pipelineDB in context", func() {
@@ -99,12 +97,12 @@ var _ = Describe("CheckPipelineAccessHandler", func() {
 
 			Context("and unauthorized", func() {
 				BeforeEach(func() {
-					userContextReader.GetTeamReturns("some-other-team", true, true)
+					tokenValidator.GetTeamReturns("some-other-team", true, true)
 				})
 
 				Context("and is authenticated", func() {
 					BeforeEach(func() {
-						authValidator.IsAuthenticatedReturns(true)
+						tokenValidator.IsAuthenticatedReturns(true)
 					})
 
 					It("returns 403 forbidden", func() {
@@ -114,7 +112,7 @@ var _ = Describe("CheckPipelineAccessHandler", func() {
 
 				Context("and not authenticated", func() {
 					BeforeEach(func() {
-						authValidator.IsAuthenticatedReturns(false)
+						tokenValidator.IsAuthenticatedReturns(false)
 					})
 
 					It("returns 401 unauthorized", func() {

@@ -22,8 +22,7 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 		handlerFactory auth.CheckBuildWriteAccessHandlerFactory
 		handler        http.Handler
 
-		authValidator     *authfakes.FakeValidator
-		userContextReader *authfakes.FakeUserContextReader
+		tokenValidator *authfakes.FakeTokenValidator
 
 		build    *dbfakes.FakeBuild
 		pipeline *dbfakes.FakePipeline
@@ -33,8 +32,7 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 		buildFactory = new(dbfakes.FakeBuildFactory)
 		handlerFactory = auth.NewCheckBuildWriteAccessHandlerFactory(buildFactory)
 
-		authValidator = new(authfakes.FakeValidator)
-		userContextReader = new(authfakes.FakeUserContextReader)
+		tokenValidator = new(authfakes.FakeTokenValidator)
 
 		delegate = &buildDelegateHandler{}
 
@@ -45,7 +43,7 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 		build.JobNameReturns("some-job")
 
 		checkBuildWriteAccessHandler := handlerFactory.HandlerFor(delegate, auth.UnauthorizedRejector{})
-		handler = auth.WrapHandler(checkBuildWriteAccessHandler, authValidator, userContextReader)
+		handler = auth.WrapHandler(checkBuildWriteAccessHandler, tokenValidator)
 	})
 
 	JustBeforeEach(func() {
@@ -64,8 +62,8 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 
 	Context("when authenticated and accessing same team's build", func() {
 		BeforeEach(func() {
-			authValidator.IsAuthenticatedReturns(true)
-			userContextReader.GetTeamReturns("some-team", true, true)
+			tokenValidator.IsAuthenticatedReturns(true)
+			tokenValidator.GetTeamReturns("some-team", true, true)
 		})
 
 		Context("when build exists", func() {
@@ -106,8 +104,8 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 
 	Context("when authenticated but accessing different team's build", func() {
 		BeforeEach(func() {
-			authValidator.IsAuthenticatedReturns(true)
-			userContextReader.GetTeamReturns("other-team-name", false, true)
+			tokenValidator.IsAuthenticatedReturns(true)
+			tokenValidator.GetTeamReturns("other-team-name", false, true)
 			buildFactory.BuildReturns(build, true, nil)
 		})
 
@@ -118,8 +116,8 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 
 	Context("when not authenticated", func() {
 		BeforeEach(func() {
-			authValidator.IsAuthenticatedReturns(false)
-			userContextReader.GetTeamReturns("", false, false)
+			tokenValidator.IsAuthenticatedReturns(false)
+			tokenValidator.GetTeamReturns("", false, false)
 		})
 
 		It("returns 401", func() {

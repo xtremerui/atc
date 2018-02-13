@@ -68,7 +68,7 @@ var _ = Describe("Pipes API", func() {
 		Describe("POST /api/v1/pipes", func() {
 			Context("when team not found", func() {
 				BeforeEach(func() {
-					userContextReader.GetTeamReturns("", false, false)
+					jwtValidator.GetTeamReturns("", false, false)
 				})
 				It("returns 500", func() {
 					createPipeWithError(http.StatusInternalServerError)
@@ -83,7 +83,7 @@ var _ = Describe("Pipes API", func() {
 				var pipe atc.Pipe
 
 				BeforeEach(func() {
-					userContextReader.GetTeamReturns("team1", false, true)
+					jwtValidator.GetTeamReturns("team1", false, true)
 					pipe = createPipe()
 					dbTeam.GetPipeReturns(db.Pipe{
 						ID:       pipe.ID,
@@ -112,9 +112,9 @@ var _ = Describe("Pipes API", func() {
 					var readRes *http.Response
 					Context("when not authorized", func() {
 						BeforeEach(func() {
-							userContextReader.GetTeamReturns("team", false, true)
+							jwtValidator.GetTeamReturns("team", false, true)
 							pipe := createPipe()
-							userContextReader.GetTeamReturns("another-team", false, true)
+							jwtValidator.GetTeamReturns("another-team", false, true)
 							readRes = readPipe(pipe.ID)
 						})
 						It("returns 403 Forbidden", func() {
@@ -124,9 +124,9 @@ var _ = Describe("Pipes API", func() {
 
 					Context("when team not found", func() {
 						BeforeEach(func() {
-							userContextReader.GetTeamReturns("team", false, true)
+							jwtValidator.GetTeamReturns("team", false, true)
 							pipe := createPipe()
-							userContextReader.GetTeamReturns("", false, false)
+							jwtValidator.GetTeamReturns("", false, false)
 							readRes = readPipe(pipe.ID)
 						})
 						It("returns 500", func() {
@@ -151,7 +151,7 @@ var _ = Describe("Pipes API", func() {
 							var writeRes *http.Response
 							Context("when not authorized", func() {
 								BeforeEach(func() {
-									userContextReader.GetTeamReturns("another-team", false, true)
+									jwtValidator.GetTeamReturns("another-team", false, true)
 									writeRes = writePipe(pipe.ID, bytes.NewBufferString("some data"))
 								})
 								It("returns 403 Forbidden", func() {
@@ -161,7 +161,7 @@ var _ = Describe("Pipes API", func() {
 
 							Context("when team not found", func() {
 								BeforeEach(func() {
-									userContextReader.GetTeamReturns("", false, false)
+									jwtValidator.GetTeamReturns("", false, false)
 									writeRes = writePipe(pipe.ID, bytes.NewBufferString("some data"))
 								})
 								It("returns 500", func() {
@@ -171,7 +171,7 @@ var _ = Describe("Pipes API", func() {
 
 							Context("when authorized", func() {
 								BeforeEach(func() {
-									userContextReader.GetTeamReturns("team1", false, true)
+									jwtValidator.GetTeamReturns("team1", false, true)
 									writeRes = writePipe(pipe.ID, bytes.NewBufferString("some data"))
 								})
 

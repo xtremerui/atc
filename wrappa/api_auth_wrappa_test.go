@@ -16,9 +16,8 @@ import (
 
 var _ = Describe("APIAuthWrappa", func() {
 	var (
-		fakeAuthValidator                       auth.Validator
+		fakeTokenValidator                      auth.TokenValidator
 		rejector                                auth.Rejector
-		fakeUserContextReader                   *authfakes.FakeUserContextReader
 		fakeCheckPipelineAccessHandlerFactory   auth.CheckPipelineAccessHandlerFactory
 		fakeCheckBuildReadAccessHandlerFactory  auth.CheckBuildReadAccessHandlerFactory
 		fakeCheckBuildWriteAccessHandlerFactory auth.CheckBuildWriteAccessHandlerFactory
@@ -27,8 +26,7 @@ var _ = Describe("APIAuthWrappa", func() {
 	)
 
 	BeforeEach(func() {
-		fakeAuthValidator = new(authfakes.FakeValidator)
-		fakeUserContextReader = new(authfakes.FakeUserContextReader)
+		fakeTokenValidator = new(authfakes.FakeTokenValidator)
 		fakeTeamFactory := new(dbfakes.FakeTeamFactory)
 		workerFactory := new(dbfakes.FakeWorkerFactory)
 		fakeBuildFactory = new(dbfakes.FakeBuildFactory)
@@ -46,11 +44,10 @@ var _ = Describe("APIAuthWrappa", func() {
 		return auth.CSRFValidationHandler(
 			auth.WrapHandler(
 				handler,
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -61,11 +58,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -76,11 +72,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -91,11 +86,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -106,11 +100,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -121,11 +114,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -136,11 +128,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -151,11 +142,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -166,11 +156,10 @@ var _ = Describe("APIAuthWrappa", func() {
 					handler,
 					rejector,
 				),
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 			),
 			rejector,
-			fakeUserContextReader,
+			fakeTokenValidator,
 		)
 	}
 
@@ -284,8 +273,7 @@ var _ = Describe("APIAuthWrappa", func() {
 
 		JustBeforeEach(func() {
 			wrappedHandlers = wrappa.NewAPIAuthWrappa(
-				fakeAuthValidator,
-				fakeUserContextReader,
+				fakeTokenValidator,
 				fakeCheckPipelineAccessHandlerFactory,
 				fakeCheckBuildReadAccessHandlerFactory,
 				fakeCheckBuildWriteAccessHandlerFactory,
