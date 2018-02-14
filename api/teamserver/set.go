@@ -17,8 +17,8 @@ func (s *Server) SetTeam(w http.ResponseWriter, r *http.Request) {
 
 	hLog.Debug("setting-team")
 
-	authTeam, authTeamFound := auth.GetTeam(r)
-	if !authTeamFound {
+	authorizer, authorizerFound := auth.GetAuthorizer(r)
+	if !authorizerFound {
 		hLog.Error("failed-to-get-team-from-auth", errors.New("failed-to-get-team-from-auth"))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -34,7 +34,7 @@ func (s *Server) SetTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	atcTeam.Name = teamName
-	if !authTeam.IsAdmin() && !authTeam.IsAuthorized(teamName) {
+	if !authorizer.IsAdmin() && !authorizer.IsAuthorized(teamName) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -56,7 +56,7 @@ func (s *Server) SetTeam(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	} else if authTeam.IsAdmin() {
+	} else if authorizer.IsAdmin() {
 		hLog.Debug("creating team")
 
 		team, err = s.teamFactory.CreateTeam(atcTeam)

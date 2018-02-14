@@ -402,6 +402,7 @@ func (cmd *ATCCommand) constructMembers(
 	dbResourceConfigCheckSessionFactory := db.NewResourceConfigCheckSessionFactory(dbConn, lockFactory)
 	dbWorkerBaseResourceTypeFactory := db.NewWorkerBaseResourceTypeFactory(dbConn)
 	dbWorkerTaskCacheFactory := db.NewWorkerTaskCacheFactory(dbConn)
+	dbPipeFactory := db.NewPipeFactory(dbConn)
 	resourceFetcherFactory := resource.NewFetcherFactory(lockFactory, clock.NewClock(), dbResourceCacheFactory)
 
 	imageResourceFetcherFactory := image.NewImageResourceFetcherFactory(
@@ -481,6 +482,7 @@ func (cmd *ATCCommand) constructMembers(
 		dbVolumeFactory,
 		dbContainerRepository,
 		dbBuildFactory,
+		dbPipeFactory,
 		authHandler.PublicKey(),
 		engine,
 		workerClient,
@@ -1009,6 +1011,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 	dbVolumeFactory db.VolumeFactory,
 	dbContainerRepository db.ContainerRepository,
 	dbBuildFactory db.BuildFactory,
+	dbPipeFactory db.PipeFactory,
 	publicKey rsa.PublicKey,
 	engine engine.Engine,
 	workerClient worker.Client,
@@ -1047,6 +1050,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 		dbVolumeFactory,
 		dbContainerRepository,
 		dbBuildFactory,
+		dbPipeFactory,
 
 		cmd.PeerURL.String(),
 		buildserver.NewEventHandler,

@@ -61,7 +61,7 @@ var _ = Describe("TeamScopedHandlerFactory", func() {
 	Context("when team is in auth context", func() {
 		BeforeEach(func() {
 			jwtValidator.IsAuthenticatedReturns(true)
-			jwtValidator.GetTeamReturns("some-team", false, true)
+			jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 		})
 
 		Context("when the team is not found", func() {
@@ -98,7 +98,7 @@ var _ = Describe("TeamScopedHandlerFactory", func() {
 	Context("when team is not in auth context", func() {
 		BeforeEach(func() {
 			jwtValidator.IsAuthenticatedReturns(true)
-			jwtValidator.GetTeamReturns("", false, false)
+			jwtValidator.GetTeamsReturns([]string{}, false, false)
 		})
 
 		It("returns 500", func() {

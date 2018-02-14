@@ -23,6 +23,22 @@ type FakeBuildFactory struct {
 		result2 bool
 		result3 error
 	}
+	TeamBuildsStub        func(db.Page, ...string) ([]db.Build, db.Pagination, error)
+	teamBuildsMutex       sync.RWMutex
+	teamBuildsArgsForCall []struct {
+		arg1 db.Page
+		arg2 []string
+	}
+	teamBuildsReturns struct {
+		result1 []db.Build
+		result2 db.Pagination
+		result3 error
+	}
+	teamBuildsReturnsOnCall map[int]struct {
+		result1 []db.Build
+		result2 db.Pagination
+		result3 error
+	}
 	PublicBuildsStub        func(db.Page) ([]db.Build, db.Pagination, error)
 	publicBuildsMutex       sync.RWMutex
 	publicBuildsArgsForCall []struct {
@@ -112,6 +128,61 @@ func (fake *FakeBuildFactory) BuildReturnsOnCall(i int, result1 db.Build, result
 	fake.buildReturnsOnCall[i] = struct {
 		result1 db.Build
 		result2 bool
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeBuildFactory) TeamBuilds(arg1 db.Page, arg2 ...string) ([]db.Build, db.Pagination, error) {
+	fake.teamBuildsMutex.Lock()
+	ret, specificReturn := fake.teamBuildsReturnsOnCall[len(fake.teamBuildsArgsForCall)]
+	fake.teamBuildsArgsForCall = append(fake.teamBuildsArgsForCall, struct {
+		arg1 db.Page
+		arg2 []string
+	}{arg1, arg2})
+	fake.recordInvocation("TeamBuilds", []interface{}{arg1, arg2})
+	fake.teamBuildsMutex.Unlock()
+	if fake.TeamBuildsStub != nil {
+		return fake.TeamBuildsStub(arg1, arg2...)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fake.teamBuildsReturns.result1, fake.teamBuildsReturns.result2, fake.teamBuildsReturns.result3
+}
+
+func (fake *FakeBuildFactory) TeamBuildsCallCount() int {
+	fake.teamBuildsMutex.RLock()
+	defer fake.teamBuildsMutex.RUnlock()
+	return len(fake.teamBuildsArgsForCall)
+}
+
+func (fake *FakeBuildFactory) TeamBuildsArgsForCall(i int) (db.Page, []string) {
+	fake.teamBuildsMutex.RLock()
+	defer fake.teamBuildsMutex.RUnlock()
+	return fake.teamBuildsArgsForCall[i].arg1, fake.teamBuildsArgsForCall[i].arg2
+}
+
+func (fake *FakeBuildFactory) TeamBuildsReturns(result1 []db.Build, result2 db.Pagination, result3 error) {
+	fake.TeamBuildsStub = nil
+	fake.teamBuildsReturns = struct {
+		result1 []db.Build
+		result2 db.Pagination
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeBuildFactory) TeamBuildsReturnsOnCall(i int, result1 []db.Build, result2 db.Pagination, result3 error) {
+	fake.TeamBuildsStub = nil
+	if fake.teamBuildsReturnsOnCall == nil {
+		fake.teamBuildsReturnsOnCall = make(map[int]struct {
+			result1 []db.Build
+			result2 db.Pagination
+			result3 error
+		})
+	}
+	fake.teamBuildsReturnsOnCall[i] = struct {
+		result1 []db.Build
+		result2 db.Pagination
 		result3 error
 	}{result1, result2, result3}
 }
@@ -258,6 +329,8 @@ func (fake *FakeBuildFactory) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.buildMutex.RLock()
 	defer fake.buildMutex.RUnlock()
+	fake.teamBuildsMutex.RLock()
+	defer fake.teamBuildsMutex.RUnlock()
 	fake.publicBuildsMutex.RLock()
 	defer fake.publicBuildsMutex.RUnlock()
 	fake.getAllStartedBuildsMutex.RLock()

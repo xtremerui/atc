@@ -83,7 +83,7 @@ var _ = Describe("CheckWorkerTeamAccessHandler", func() {
 	Context("when authenticated", func() {
 		BeforeEach(func() {
 			tokenValidator.IsAuthenticatedReturns(true)
-			tokenValidator.GetTeamReturns("some-team", false, true)
+			tokenValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 		})
 
 		Context("when worker exists and belongs to a team", func() {
@@ -97,7 +97,7 @@ var _ = Describe("CheckWorkerTeamAccessHandler", func() {
 
 			Context("when team in auth matches worker team", func() {
 				BeforeEach(func() {
-					tokenValidator.GetTeamReturns("some-team", false, true)
+					tokenValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 				})
 
 				It("fetches worker by the correct name", func() {
@@ -112,7 +112,7 @@ var _ = Describe("CheckWorkerTeamAccessHandler", func() {
 
 			Context("when team in auth does not match worker team", func() {
 				BeforeEach(func() {
-					tokenValidator.GetTeamReturns("some-other-team", false, true)
+					tokenValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 				})
 
 				It("fetches worker by the correct name", func() {
@@ -139,7 +139,7 @@ var _ = Describe("CheckWorkerTeamAccessHandler", func() {
 
 			Context("when team in auth is admin", func() {
 				BeforeEach(func() {
-					tokenValidator.GetTeamReturns("admin-team", true, true)
+					tokenValidator.GetTeamsReturns([]string{"admin-team"}, true, true)
 				})
 
 				It("calls worker delegate", func() {
@@ -150,7 +150,7 @@ var _ = Describe("CheckWorkerTeamAccessHandler", func() {
 
 			Context("when team in auth is not admin", func() {
 				BeforeEach(func() {
-					tokenValidator.GetTeamReturns("some-other-team", false, true)
+					tokenValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 				})
 
 				It("does not call worker delegate", func() {

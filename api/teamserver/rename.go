@@ -14,15 +14,15 @@ import (
 func (s *Server) RenameTeam(w http.ResponseWriter, r *http.Request) {
 	logger := s.logger.Session("rename-team")
 
-	authTeam, authTeamFound := auth.GetTeam(r)
-	if !authTeamFound {
+	authorizer, authorizerFound := auth.GetAuthorizer(r)
+	if !authorizerFound {
 		logger.Error("failed-to-get-team-from-auth", errors.New("failed-to-get-team-from-auth"))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	teamName := r.FormValue(":team_name")
-	if !authTeam.IsAdmin() && !authTeam.IsAuthorized(teamName) {
+	if !authorizer.IsAdmin() && !authorizer.IsAuthorized(teamName) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

@@ -88,7 +88,7 @@ var _ = Describe("Resources API", func() {
 			Context("when not authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(false)
-					jwtValidator.GetTeamReturns("", false, false)
+					jwtValidator.GetTeamsReturns([]string{}, false, false)
 				})
 
 				Context("and the pipeline is private", func() {
@@ -148,7 +148,7 @@ var _ = Describe("Resources API", func() {
 			Context("when authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 				})
 
 				It("returns 200 OK", func() {
@@ -234,7 +234,7 @@ var _ = Describe("Resources API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -288,7 +288,7 @@ var _ = Describe("Resources API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			It("looks it up in the database", func() {
@@ -391,7 +391,7 @@ var _ = Describe("Resources API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			It("injects the proper pipelineDB", func() {
@@ -467,7 +467,7 @@ var _ = Describe("Resources API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			It("injects the proper pipelineDB", func() {
@@ -544,7 +544,7 @@ var _ = Describe("Resources API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			It("injects the proper pipelineDB", func() {

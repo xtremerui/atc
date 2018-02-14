@@ -11,8 +11,8 @@ func (s *Server) DestroyTeam(w http.ResponseWriter, r *http.Request) {
 	hLog := s.logger.Session("destroy-team")
 	hLog.Debug("destroying-team")
 
-	authTeam, authTeamFound := auth.GetTeam(r)
-	if !authTeamFound {
+	authorizer, found := auth.GetAuthorizer(r)
+	if !found {
 		hLog.Error("failed-to-get-team-from-auth", errors.New("failed-to-get-team-from-auth"))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -20,7 +20,7 @@ func (s *Server) DestroyTeam(w http.ResponseWriter, r *http.Request) {
 
 	teamName := r.FormValue(":team_name")
 
-	if !authTeam.IsAdmin() {
+	if !authorizer.IsAdmin() {
 		hLog.Info("requesting-team-is-not-admin")
 		w.WriteHeader(http.StatusForbidden)
 		return

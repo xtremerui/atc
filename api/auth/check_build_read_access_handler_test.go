@@ -109,7 +109,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		Context("when authenticated and accessing same team's build", func() {
 			BeforeEach(func() {
 				tokenValidator.IsAuthenticatedReturns(true)
-				tokenValidator.GetTeamReturns("some-team", true, true)
+				tokenValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 			})
 
 			WithExistingBuild(ItReturnsTheBuild)
@@ -118,7 +118,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		Context("when authenticated but accessing different team's build", func() {
 			BeforeEach(func() {
 				tokenValidator.IsAuthenticatedReturns(true)
-				tokenValidator.GetTeamReturns("other-team-name", false, true)
+				tokenValidator.GetTeamsReturns([]string{"other-team-name"}, false, true)
 			})
 
 			WithExistingBuild(func() {
@@ -147,7 +147,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
 				tokenValidator.IsAuthenticatedReturns(false)
-				tokenValidator.GetTeamReturns("", false, false)
+				tokenValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			WithExistingBuild(func() {
@@ -256,7 +256,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		Context("when authenticated and accessing same team's build", func() {
 			BeforeEach(func() {
 				tokenValidator.IsAuthenticatedReturns(true)
-				tokenValidator.GetTeamReturns("some-team", true, true)
+				tokenValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 			})
 
 			WithExistingBuild(ItReturnsTheBuild)
@@ -265,7 +265,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		Context("when authenticated but accessing different team's build", func() {
 			BeforeEach(func() {
 				tokenValidator.IsAuthenticatedReturns(true)
-				tokenValidator.GetTeamReturns("other-team-name", false, true)
+				tokenValidator.GetTeamsReturns([]string{"other-team-name"}, false, true)
 			})
 
 			WithExistingBuild(func() {
@@ -276,7 +276,7 @@ var _ = Describe("CheckBuildReadAccessHandler", func() {
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
 				tokenValidator.IsAuthenticatedReturns(false)
-				tokenValidator.GetTeamReturns("", false, false)
+				tokenValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			WithExistingBuild(func() {

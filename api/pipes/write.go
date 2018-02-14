@@ -7,43 +7,30 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/atc"
-	"github.com/concourse/atc/api/auth"
 )
 
 func (s *Server) WritePipe(w http.ResponseWriter, r *http.Request) {
 	logger := s.logger.Session("write-pipe")
 	pipeID := r.FormValue(":pipe_id")
 
-	authTeam, found := auth.GetTeam(r)
-	if !found {
-		logger.Error("failed-to-get-team", errors.New("failed-to-get-team"))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	dbTeam, found, err := s.teamFactory.FindTeam(authTeam.Name())
+	user, err := s.userFactory.GetUser(r.Context())
 	if err != nil {
-		logger.Error("failed-to-get-team-from-db", errors.New("failed-to-get-team-from-db"))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if !found {
-		logger.Error("failed-to-find-team", errors.New("failed-to-find-team"))
+		logger.Error("failed-to-get-user", errors.New("failed-to-get-user"))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	dbPipe, err := dbTeam.GetPipe(pipeID)
+	dbPipe, err := user.GetPipe(pipeID)
 	if err != nil {
 		logger.Error("failed-to-get-pipe", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	if authTeam.Name() != dbPipe.TeamName {
-		logger.Error("team-not-authorized-to-read-pipe",
-			errors.New("team-not-authorized-to-read-pipe"),
-			lager.Data{"TeamName": authTeam.Name(), "PipeID": dbPipe.ID})
+	if user.ID() != dbPipe.UserId {
+		logger.Error("user-not-authorized-to-read-pipe",
+			errors.New("user-not-authorized-to-read-pipe"),
+			lager.Data{"UserId": user.ID(), "PipeID": dbPipe.ID})
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

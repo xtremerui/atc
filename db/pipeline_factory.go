@@ -8,7 +8,7 @@ import (
 //go:generate counterfeiter . PipelineFactory
 
 type PipelineFactory interface {
-	TeamPipelines(teamIDs ...int) ([]Pipeline, error)
+	TeamPipelines(names ...string) ([]Pipeline, error)
 	PublicPipelines() ([]Pipeline, error)
 	AllPipelines() ([]Pipeline, error)
 }
@@ -25,9 +25,9 @@ func NewPipelineFactory(conn Conn, lockFactory lock.LockFactory) PipelineFactory
 	}
 }
 
-func (f *pipelineFactory) TeamPipelines(teamIDs ...int) ([]Pipeline, error) {
+func (f *pipelineFactory) TeamPipelines(names ...string) ([]Pipeline, error) {
 	rows, err := pipelinesQuery.
-		Where(sq.Eq{"team_id": teamIDs}).
+		Where(sq.Eq{"name": names}).
 		OrderBy("team_id ASC", "ordering ASC").
 		RunWith(f.conn).
 		Query()
@@ -41,7 +41,7 @@ func (f *pipelineFactory) TeamPipelines(teamIDs ...int) ([]Pipeline, error) {
 	}
 
 	rows, err = pipelinesQuery.
-		Where(sq.NotEq{"team_id": teamIDs}).
+		Where(sq.NotEq{"name": names}).
 		Where(sq.Eq{"public": true}).
 		OrderBy("team_id ASC", "ordering ASC").
 		RunWith(f.conn).

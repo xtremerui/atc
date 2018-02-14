@@ -11,6 +11,7 @@ import (
 
 type BuildFactory interface {
 	Build(int) (Build, bool, error)
+	TeamBuilds(Page, ...string) ([]Build, Pagination, error)
 	PublicBuilds(Page) ([]Build, Pagination, error)
 	GetAllStartedBuilds() ([]Build, error)
 
@@ -50,6 +51,10 @@ func (f *buildFactory) Build(buildID int) (Build, bool, error) {
 	}
 
 	return build, true, nil
+}
+
+func (f *buildFactory) TeamBuilds(page Page, names ...string) ([]Build, Pagination, error) {
+	return getBuildsWithPagination(buildsQuery.Where(sq.Eq{"t.name": names}), page, f.conn, f.lockFactory)
 }
 
 func (f *buildFactory) PublicBuilds(page Page) ([]Build, Pagination, error) {

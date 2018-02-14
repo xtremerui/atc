@@ -8,10 +8,10 @@ import (
 )
 
 type FakePipelineFactory struct {
-	TeamPipelinesStub        func(teamIDs ...int) ([]db.Pipeline, error)
+	TeamPipelinesStub        func(names ...string) ([]db.Pipeline, error)
 	teamPipelinesMutex       sync.RWMutex
 	teamPipelinesArgsForCall []struct {
-		teamIDs []int
+		names []string
 	}
 	teamPipelinesReturns struct {
 		result1 []db.Pipeline
@@ -47,16 +47,16 @@ type FakePipelineFactory struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakePipelineFactory) TeamPipelines(teamIDs ...int) ([]db.Pipeline, error) {
+func (fake *FakePipelineFactory) TeamPipelines(names ...string) ([]db.Pipeline, error) {
 	fake.teamPipelinesMutex.Lock()
 	ret, specificReturn := fake.teamPipelinesReturnsOnCall[len(fake.teamPipelinesArgsForCall)]
 	fake.teamPipelinesArgsForCall = append(fake.teamPipelinesArgsForCall, struct {
-		teamIDs []int
-	}{teamIDs})
-	fake.recordInvocation("TeamPipelines", []interface{}{teamIDs})
+		names []string
+	}{names})
+	fake.recordInvocation("TeamPipelines", []interface{}{names})
 	fake.teamPipelinesMutex.Unlock()
 	if fake.TeamPipelinesStub != nil {
-		return fake.TeamPipelinesStub(teamIDs...)
+		return fake.TeamPipelinesStub(names...)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -70,10 +70,10 @@ func (fake *FakePipelineFactory) TeamPipelinesCallCount() int {
 	return len(fake.teamPipelinesArgsForCall)
 }
 
-func (fake *FakePipelineFactory) TeamPipelinesArgsForCall(i int) []int {
+func (fake *FakePipelineFactory) TeamPipelinesArgsForCall(i int) []string {
 	fake.teamPipelinesMutex.RLock()
 	defer fake.teamPipelinesMutex.RUnlock()
-	return fake.teamPipelinesArgsForCall[i].teamIDs
+	return fake.teamPipelinesArgsForCall[i].names
 }
 
 func (fake *FakePipelineFactory) TeamPipelinesReturns(result1 []db.Pipeline, result2 error) {

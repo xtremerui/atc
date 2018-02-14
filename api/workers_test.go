@@ -33,7 +33,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when authenticated", func() {
 			BeforeEach(func() {
-				jwtValidator.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 				jwtValidator.IsAuthenticatedReturns(true)
 			})
 
@@ -144,7 +144,7 @@ var _ = Describe("Workers API", func() {
 			}
 
 			ttl = "30s"
-			jwtValidator.GetTeamReturns("some-team", true, true)
+			jwtValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 			jwtValidator.GetSystemReturns(true, true)
 
 			fakeGardenWorker = new(workerfakes.FakeWorker)
@@ -451,7 +451,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when the request is authenticated as the worker's owner", func() {
 			BeforeEach(func() {
-				jwtValidator.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 			})
 
 			It("returns 200", func() {
@@ -461,7 +461,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when the request is authenticated as the wrong team", func() {
 			BeforeEach(func() {
-				jwtValidator.GetTeamReturns("some-other-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 			})
 
 			It("returns 403", func() {
@@ -553,7 +553,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when autheticated as as the worker's owner", func() {
 			BeforeEach(func() {
-				jwtValidator.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 			})
 
 			It("returns 200", func() {
@@ -563,7 +563,7 @@ var _ = Describe("Workers API", func() {
 
 		Context("when autheticated as some other team", func() {
 			BeforeEach(func() {
-				jwtValidator.GetTeamReturns("some-other-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 			})
 
 			It("returns 403", func() {
@@ -609,7 +609,7 @@ var _ = Describe("Workers API", func() {
 
 			dbWorkerFactory.GetWorkerReturns(fakeWorker, true, nil)
 			jwtValidator.IsAuthenticatedReturns(true)
-			jwtValidator.GetTeamReturns("some-team", false, true)
+			jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 			fakeWorker.PruneReturns(nil)
 		})
 

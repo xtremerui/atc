@@ -136,7 +136,7 @@ var _ = Describe("Config API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			Context("when the team is found", func() {
@@ -384,7 +384,7 @@ var _ = Describe("Config API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			Context("when a config version is specified", func() {

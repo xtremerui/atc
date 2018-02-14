@@ -75,8 +75,8 @@ func (h checkBuildReadAccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	authTeam, authTeamFound := GetTeam(r)
-	if !IsAuthenticated(r) || (authTeamFound && !authTeam.IsAuthorized(build.TeamName())) {
+	authorizer, authFound := GetAuthorizer(r)
+	if !IsAuthenticated(r) || (authFound && !authorizer.IsAuthorized(build.TeamName())) {
 		pipeline, found, err := build.Pipeline()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

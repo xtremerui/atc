@@ -109,7 +109,7 @@ var _ = Describe("Pipelines API", func() {
 
 		Context("when team is set in user context", func() {
 			BeforeEach(func() {
-				jwtValidator.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 			})
 
 			It("constructs teamDB with provided team name", func() {
@@ -120,7 +120,7 @@ var _ = Describe("Pipelines API", func() {
 
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 				jwtValidator.IsAuthenticatedReturns(false)
 			})
 
@@ -156,7 +156,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when authenticated", func() {
 			BeforeEach(func() {
 				dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
-				jwtValidator.GetTeamReturns("main", false, true)
+				jwtValidator.GetTeamsReturns([]string{"main"}, false, true)
 				jwtValidator.IsAuthenticatedReturns(true)
 			})
 
@@ -230,7 +230,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when authenticated as requested team", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("main", false, true)
+				jwtValidator.GetTeamsReturns([]string{"main"}, false, true)
 				dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 			})
 
@@ -296,7 +296,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when authenticated as another team", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("another-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"another-team"}, false, true)
 				dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 			})
 
@@ -325,7 +325,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 				dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 			})
 
@@ -390,7 +390,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			It("returns 401", func() {
@@ -401,7 +401,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when authenticated as requested team", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 				dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				fakeTeam.PipelineReturns(fakePipeline, true, nil)
 			})
@@ -444,7 +444,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when authenticated as another team", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("another-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				fakeTeam.PipelineReturns(fakePipeline, true, nil)
 				dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 			})
@@ -474,7 +474,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when not authenticated at all", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", true, false)
+				jwtValidator.GetTeamsReturns([]string{}, true, false)
 				dbTeam.PipelineReturns(fakePipeline, true, nil)
 			})
 
@@ -542,7 +542,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -569,7 +569,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 			})
 
 			It("returns 200 OK", func() {
@@ -767,7 +767,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester belongs to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 					dbPipeline.NameReturns("a-pipeline-name")
 					fakeTeam.PipelineReturns(dbPipeline, true, nil)
@@ -807,7 +807,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {
@@ -844,7 +844,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester belongs to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				})
 
@@ -884,7 +884,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {
@@ -921,7 +921,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester belongs to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 					fakeTeam.PipelineReturns(dbPipeline, true, nil)
 				})
@@ -962,7 +962,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {
@@ -999,7 +999,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester belongs to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				})
 
@@ -1039,7 +1039,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {
@@ -1076,7 +1076,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester belongs to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				})
 
@@ -1116,7 +1116,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {
@@ -1166,7 +1166,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester belonbgs to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				})
 
@@ -1225,7 +1225,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {
@@ -1261,7 +1261,7 @@ var _ = Describe("Pipelines API", func() {
 		Context("when authenticated", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 				dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 				fakeTeam.PipelineReturns(dbPipeline, true, nil)
 				//construct Version db
@@ -1391,7 +1391,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester belongs to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 					fakeTeam.PipelineReturns(dbPipeline, true, nil)
 				})
@@ -1430,7 +1430,7 @@ var _ = Describe("Pipelines API", func() {
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {
@@ -1499,7 +1499,7 @@ var _ = Describe("Pipelines API", func() {
 
 			Context("when requester belongs to the team", func() {
 				BeforeEach(func() {
-					jwtValidator.GetTeamReturns("a-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 					dbTeamFactory.FindTeamReturns(fakeTeam, true, nil)
 					fakeTeam.PipelineReturns(dbPipeline, true, nil)
 				})
@@ -1597,7 +1597,7 @@ var _ = Describe("Pipelines API", func() {
 
 			Context("when requester does not belong to the team", func() {
 				BeforeEach(func() {
-					jwtValidator.GetTeamReturns("another-team", true, true)
+					jwtValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403 Forbidden", func() {

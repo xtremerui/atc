@@ -84,7 +84,7 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 
 			Context("when the bearer token's team matches the request's team", func() {
 				BeforeEach(func() {
-					fakeValidator.GetTeamReturns("some-team", true, true)
+					fakeValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 				})
 
 				It("returns 200", func() {
@@ -100,7 +100,7 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 
 			Context("when the bearer token's team is set to something other than the request's team", func() {
 				BeforeEach(func() {
-					fakeValidator.GetTeamReturns("another-team", true, true)
+					fakeValidator.GetTeamsReturns([]string{"another-team"}, true, true)
 				})
 
 				It("returns 403", func() {
@@ -126,7 +126,7 @@ var _ = Describe("CheckAuthorizationHandler", func() {
 
 			Context("when the bearer token is for the requested team", func() {
 				BeforeEach(func() {
-					fakeValidator.GetTeamReturns("some-team", true, true)
+					fakeValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 				})
 
 				It("returns 401", func() {

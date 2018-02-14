@@ -31,28 +31,25 @@ var _ = Describe("WrapHandler", func() {
 		fakeValidator = new(authfakes.FakeTokenValidator)
 
 		a := make(chan bool, 1)
-		tn := make(chan string, 1)
 		ia := make(chan bool, 1)
 		is := make(chan bool, 1)
 		f := make(chan bool, 1)
 		sf := make(chan bool, 1)
 
 		authenticated = a
-		teamNameChan = tn
 		isAdminChan = ia
 		isSystemChan = is
 		foundChan = f
 		systemFoundChan = sf
 		simpleHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			a <- auth.IsAuthenticated(r)
-			authTeam, authTeamFound := auth.GetTeam(r)
+			authorizer, authFound := auth.GetAuthorizer(r)
 			isSystem, systemFound := r.Context().Value("system").(bool)
 
-			f <- authTeamFound
+			f <- authFound
 			sf <- systemFound
-			if authTeam != nil {
-				tn <- authTeam.Name()
-				ia <- authTeam.IsAdmin()
+			if authorizer != nil {
+				ia <- authorizer.IsAdmin()
 			}
 			if systemFound {
 				is <- isSystem
@@ -106,7 +103,7 @@ var _ = Describe("WrapHandler", func() {
 
 		Context("when the userContextReader finds team information", func() {
 			BeforeEach(func() {
-				fakeValidator.GetTeamReturns("some-team", true, true)
+				fakeValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 			})
 
 			It("passes the team information along in the request object", func() {
@@ -118,7 +115,7 @@ var _ = Describe("WrapHandler", func() {
 
 		Context("when the userContextReader does not find team information", func() {
 			BeforeEach(func() {
-				fakeValidator.GetTeamReturns("", false, false)
+				fakeValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			It("does not pass team information along in the request object", func() {

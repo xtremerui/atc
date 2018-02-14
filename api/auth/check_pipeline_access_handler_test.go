@@ -82,7 +82,7 @@ var _ = Describe("CheckPipelineAccessHandler", func() {
 			Context("and authorized", func() {
 				BeforeEach(func() {
 					tokenValidator.IsAuthenticatedReturns(true)
-					tokenValidator.GetTeamReturns("some-team", true, true)
+					tokenValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 				})
 
 				It("calls pipelineScopedHandler with pipelineDB in context", func() {
@@ -97,7 +97,7 @@ var _ = Describe("CheckPipelineAccessHandler", func() {
 
 			Context("and unauthorized", func() {
 				BeforeEach(func() {
-					tokenValidator.GetTeamReturns("some-other-team", true, true)
+					tokenValidator.GetTeamsReturns([]string{"some-other-team"}, true, true)
 				})
 
 				Context("and is authenticated", func() {

@@ -19,14 +19,14 @@ type Server struct {
 	pipes  map[string]pipe
 	pipesL *sync.RWMutex
 
-	teamFactory db.TeamFactory
+	userFactory db.UserFactory
 }
 
 func NewServer(
 	logger lager.Logger,
 	url string,
 	externalURL string,
-	teamFactory db.TeamFactory,
+	userFactory db.UserFactory,
 ) *Server {
 	return &Server{
 		logger: logger,
@@ -36,7 +36,7 @@ func NewServer(
 
 		pipes:       make(map[string]pipe),
 		pipesL:      new(sync.RWMutex),
-		teamFactory: teamFactory,
+		userFactory: userFactory,
 	}
 }
 

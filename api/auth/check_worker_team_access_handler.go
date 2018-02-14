@@ -50,13 +50,13 @@ func (h checkWorkerTeamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	team, found := GetTeam(r)
+	authorizer, found := GetAuthorizer(r)
 	if !found {
 		h.rejector.Unauthorized(w, r)
 		return
 	}
 
-	if team.IsAdmin() {
+	if authorizer.IsAdmin() {
 		h.delegateHandler.ServeHTTP(w, r)
 		return
 	}
@@ -74,7 +74,7 @@ func (h checkWorkerTeamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if worker.TeamName() != team.Name() {
+	if !authorizer.IsAuthorized(worker.TeamName()) {
 		h.rejector.Forbidden(w, r)
 		return
 	}

@@ -23,11 +23,16 @@ type authHandler struct {
 func (h authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	isAuthenticated := h.validator.IsAuthenticated(r)
-	ctx := context.WithValue(r.Context(), authenticated, isAuthenticated)
+	ctx := context.WithValue(r.Context(), isAuthenticatedKey, isAuthenticated)
 
-	teamName, isAdmin, found := h.validator.GetTeam(r)
+	userId, found := h.validator.GetUserId(r)
 	if found {
-		ctx = context.WithValue(ctx, teamNameKey, teamName)
+		ctx = context.WithValue(ctx, userIdKey, userId)
+	}
+
+	teams, isAdmin, found := h.validator.GetTeams(r)
+	if found {
+		ctx = context.WithValue(ctx, teamsKey, teams)
 		ctx = context.WithValue(ctx, isAdminKey, isAdmin)
 	}
 

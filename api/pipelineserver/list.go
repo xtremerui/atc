@@ -27,8 +27,8 @@ func (s *Server) ListPipelines(w http.ResponseWriter, r *http.Request) {
 
 	var pipelines []db.Pipeline
 
-	authTeam, authTeamFound := auth.GetTeam(r)
-	if authTeamFound && authTeam.IsAuthorized(requestTeamName) {
+	authorizer, authorizerFound := auth.GetAuthorizer(r)
+	if authorizerFound && authorizer.IsAuthorized(requestTeamName) {
 		pipelines, err = team.Pipelines()
 	} else {
 		pipelines, err = team.PublicPipelines()

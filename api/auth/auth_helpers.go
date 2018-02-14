@@ -21,14 +21,14 @@ func IsSystem(r *http.Request) bool {
 }
 
 func IsAuthenticated(r *http.Request) bool {
-	isAuthenticated, _ := r.Context().Value(authenticated).(bool)
+	isAuthenticated, _ := r.Context().Value(isAuthenticatedKey).(bool)
 	return isAuthenticated
 }
 
 func IsAuthorized(r *http.Request) bool {
-	authTeam, authTeamFound := GetTeam(r)
+	authorizer, authFound := GetAuthorizer(r)
 
-	if authTeamFound && authTeam.IsAuthorized(r.URL.Query().Get(":team_name")) {
+	if authFound && authorizer.IsAuthorized(r.URL.Query().Get(":team_name")) {
 		return true
 	}
 
@@ -54,36 +54,48 @@ func getJWT(r *http.Request, publicKey *rsa.PublicKey) (token *jwt.Token, err er
 	return nil, errors.New("unable to parse authorization header")
 }
 
-func GetTeam(r *http.Request) (Team, bool) {
-	teamName, namePresent := r.Context().Value(teamNameKey).(string)
+func GetAuthorizer(r *http.Request) (Authorizer, bool) {
+	userId, userIdPresent := r.Context().Value(userIdKey).(string)
+	teams, teamsPresent := r.Context().Value(teamsKey).([]string)
 	isAdmin, adminPresent := r.Context().Value(isAdminKey).(bool)
 
-	if !(namePresent && adminPresent) {
+	if !(userIdPresent && teamsPresent && adminPresent) {
 		return nil, false
 	}
 
-	return &team{name: teamName, isAdmin: isAdmin}, true
+	return &authorizer{userId, teams, isAdmin}, true
 }
 
-type Team interface {
-	Name() string
+type Authorizer interface {
+	UserId() string
+	Teams() []string
 	IsAdmin() bool
 	IsAuthorized(teamName string) bool
 }
 
-type team struct {
-	name    string
+type authorizer struct {
+	userId  string
+	teams   []string
 	isAdmin bool
 }
 
-func (t *team) Name() string {
-	return t.name
+func (a *authorizer) UserId() string {
+	return a.userId
 }
 
-func (t *team) IsAdmin() bool {
-	return t.isAdmin
+func (a *authorizer) Teams() []string {
+	return a.teams
 }
 
-func (t *team) IsAuthorized(teamName string) bool {
-	return t.name == teamName
+func (a *authorizer) IsAdmin() bool {
+	return a.isAdmin
+}
+
+func (a *authorizer) IsAuthorized(teamName string) bool {
+	for _, team := range a.teams {
+		if team == teamName {
+			return true
+		}
+	}
+	return false
 }

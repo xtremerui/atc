@@ -44,6 +44,7 @@ func NewHandler(
 	volumeFactory db.VolumeFactory,
 	containerRepository db.ContainerRepository,
 	dbBuildFactory db.BuildFactory,
+	dbUserFactory db.UserFactory,
 
 	peerURL string,
 	eventHandlerFactory buildserver.EventHandlerFactory,
@@ -75,12 +76,13 @@ func NewHandler(
 	pipelineHandlerFactory := pipelineserver.NewScopedHandlerFactory(dbTeamFactory)
 	buildHandlerFactory := buildserver.NewScopedHandlerFactory(logger)
 	teamHandlerFactory := NewTeamScopedHandlerFactory(logger, dbTeamFactory)
+	userHandlerFactory := NewUserScopedHandlerFactory(logger, dbUserFactory)
 
 	buildServer := buildserver.NewServer(logger, externalURL, engine, workerClient, dbTeamFactory, dbBuildFactory, eventHandlerFactory, drain)
 	jobServer := jobserver.NewServer(logger, schedulerFactory, externalURL, variablesFactory)
 	resourceServer := resourceserver.NewServer(logger, scannerFactory)
 	versionServer := versionserver.NewServer(logger, externalURL)
-	pipeServer := pipes.NewServer(logger, peerURL, externalURL, dbTeamFactory)
+	pipeServer := pipes.NewServer(logger, peerURL, externalURL, dbUserFactory)
 	pipelineServer := pipelineserver.NewServer(logger, dbTeamFactory, dbPipelineFactory, engine)
 	configServer := configserver.NewServer(logger, dbTeamFactory)
 	workerServer := workerserver.NewServer(logger, dbTeamFactory, dbWorkerFactory, workerProvider)
@@ -97,7 +99,7 @@ func NewHandler(
 		atc.SaveConfig: http.HandlerFunc(configServer.SaveConfig),
 
 		atc.ListBuilds:          http.HandlerFunc(buildServer.ListBuilds),
-		atc.CreateBuild:         teamHandlerFactory.HandlerFor(buildServer.CreateBuild),
+		atc.CreateBuild:         userHandlerFactory.HandlerFor(buildServer.CreateBuild),
 		atc.GetBuild:            buildHandlerFactory.HandlerFor(buildServer.GetBuild),
 		atc.BuildResources:      buildHandlerFactory.HandlerFor(buildServer.BuildResources),
 		atc.AbortBuild:          buildHandlerFactory.HandlerFor(buildServer.AbortBuild),
@@ -149,7 +151,7 @@ func NewHandler(
 		atc.WritePipe:  http.HandlerFunc(pipeServer.WritePipe),
 		atc.ReadPipe:   http.HandlerFunc(pipeServer.ReadPipe),
 
-		atc.ListWorkers:     teamHandlerFactory.HandlerFor(workerServer.ListWorkers),
+		atc.ListWorkers:     userHandlerFactory.HandlerFor(workerServer.ListWorkers),
 		atc.RegisterWorker:  http.HandlerFunc(workerServer.RegisterWorker),
 		atc.LandWorker:      http.HandlerFunc(workerServer.LandWorker),
 		atc.RetireWorker:    http.HandlerFunc(workerServer.RetireWorker),

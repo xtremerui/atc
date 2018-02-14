@@ -44,7 +44,7 @@ var _ = Describe("Volumes API", func() {
 		Context("when authenticated", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("some-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 			})
 
 			Context("when identifying the team succeeds", func() {

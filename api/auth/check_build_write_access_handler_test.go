@@ -63,7 +63,7 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 	Context("when authenticated and accessing same team's build", func() {
 		BeforeEach(func() {
 			tokenValidator.IsAuthenticatedReturns(true)
-			tokenValidator.GetTeamReturns("some-team", true, true)
+			tokenValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 		})
 
 		Context("when build exists", func() {
@@ -105,7 +105,7 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 	Context("when authenticated but accessing different team's build", func() {
 		BeforeEach(func() {
 			tokenValidator.IsAuthenticatedReturns(true)
-			tokenValidator.GetTeamReturns("other-team-name", false, true)
+			tokenValidator.GetTeamsReturns([]string{"other-team-name"}, false, true)
 			buildFactory.BuildReturns(build, true, nil)
 		})
 
@@ -117,7 +117,7 @@ var _ = Describe("CheckBuildWriteAccessHandler", func() {
 	Context("when not authenticated", func() {
 		BeforeEach(func() {
 			tokenValidator.IsAuthenticatedReturns(false)
-			tokenValidator.GetTeamReturns("", false, false)
+			tokenValidator.GetTeamsReturns([]string{}, false, false)
 		})
 
 		It("returns 401", func() {

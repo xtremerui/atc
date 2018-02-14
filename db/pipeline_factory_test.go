@@ -69,7 +69,7 @@ var _ = Describe("Pipeline Factory", func() {
 		})
 
 		It("returns all pipelines for given teams", func() {
-			pipelines, err := pipelineFactory.TeamPipelines(team1.ID(), team2.ID())
+			pipelines, err := pipelineFactory.TeamPipelines(team1.Name(), team2.Name())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(pipelines)).To(Equal(3))
 			Expect(pipelines[0].Name()).To(Equal(pipeline1.Name()))

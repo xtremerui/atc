@@ -29,13 +29,13 @@ func (f *TeamScopedHandlerFactory) HandlerFor(teamScopedHandler func(db.Team) ht
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := f.logger.Session("team-scoped-handler")
 
-		authTeam, authTeamFound := auth.GetTeam(r)
-		if !authTeamFound {
+		authorizer, authorizerFound := auth.GetAuthorizer(r)
+		if !authorizerFound {
 			logger.Error("team-not-found-in-context", errors.New("team-not-found-in-context"))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		team, found, err := f.teamFactory.FindTeam(authTeam.Name())
+		team, found, err := f.teamFactory.FindTeam(authorizer.Name())
 		if err != nil {
 			logger.Error("failed-to-find-team-in-db", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -43,7 +43,7 @@ func (f *TeamScopedHandlerFactory) HandlerFor(teamScopedHandler func(db.Team) ht
 		}
 
 		if !found {
-			logger.Error("team-not-found-in-database", errors.New("team-not-found-in-database"), lager.Data{"team-name": authTeam.Name()})
+			logger.Error("team-not-found-in-database", errors.New("team-not-found-in-database"), lager.Data{"team-name": authorizer.Name()})
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}

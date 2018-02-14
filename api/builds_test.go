@@ -54,7 +54,7 @@ var _ = Describe("Builds API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 			})
 
 			Context("when creating a one-off build succeeds", func() {
@@ -362,7 +362,7 @@ var _ = Describe("Builds API", func() {
 			Context("when authenticated, but not authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("some-other-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 				})
 
 				It("returns 403", func() {
@@ -373,7 +373,7 @@ var _ = Describe("Builds API", func() {
 			Context("when authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("some-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 				})
 
 				It("returns 200 OK", func() {
@@ -577,7 +577,7 @@ var _ = Describe("Builds API", func() {
 		Context("when not authenticated", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			Context("when no params are passed", func() {
@@ -690,7 +690,7 @@ var _ = Describe("Builds API", func() {
 		Context("when authenticated", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("some-team", false, true)
+				jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 			})
 
 			Context("when no params are passed", func() {
@@ -835,7 +835,7 @@ var _ = Describe("Builds API", func() {
 			Context("when authenticated, but not authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("some-other-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 				})
 
 				It("returns 403", func() {
@@ -846,7 +846,7 @@ var _ = Describe("Builds API", func() {
 			Context("when authorized", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("some-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 				})
 
 				It("returns 200", func() {
@@ -1031,7 +1031,7 @@ var _ = Describe("Builds API", func() {
 
 				Context("when accessing same team's build", func() {
 					BeforeEach(func() {
-						jwtValidator.GetTeamReturns("some-team", true, true)
+						jwtValidator.GetTeamsReturns([]string{"some-team"}, true, true)
 					})
 
 					Context("when the engine returns a build", func() {
@@ -1080,7 +1080,7 @@ var _ = Describe("Builds API", func() {
 
 				Context("when accessing other team's build", func() {
 					BeforeEach(func() {
-						jwtValidator.GetTeamReturns("some-other-team", true, true)
+						jwtValidator.GetTeamsReturns([]string{"some-other-team"}, true, true)
 					})
 
 					It("returns 403", func() {
@@ -1160,7 +1160,7 @@ var _ = Describe("Builds API", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
 					build.PipelineReturns(fakePipeline, true, nil)
-					jwtValidator.GetTeamReturns("some-other-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 				})
 
 				It("returns 403", func() {
@@ -1259,7 +1259,7 @@ var _ = Describe("Builds API", func() {
 			Context("when authenticated", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("some-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 				})
 
 				It("fetches data from the db", func() {
@@ -1367,7 +1367,7 @@ var _ = Describe("Builds API", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
 					build.PipelineReturns(fakePipeline, true, nil)
-					jwtValidator.GetTeamReturns("some-other-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-other-team"}, false, true)
 				})
 
 				It("returns 403", func() {
@@ -1416,7 +1416,7 @@ var _ = Describe("Builds API", func() {
 			Context("when authenticated", func() {
 				BeforeEach(func() {
 					jwtValidator.IsAuthenticatedReturns(true)
-					jwtValidator.GetTeamReturns("some-team", false, true)
+					jwtValidator.GetTeamsReturns([]string{"some-team"}, false, true)
 				})
 
 				Context("when the build returns a plan", func() {

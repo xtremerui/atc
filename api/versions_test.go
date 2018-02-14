@@ -44,7 +44,7 @@ var _ = Describe("Versions API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -72,7 +72,7 @@ var _ = Describe("Versions API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			Context("when no params are passed", func() {
@@ -255,7 +255,7 @@ var _ = Describe("Versions API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			Context("when enabling the resource succeeds", func() {
@@ -310,7 +310,7 @@ var _ = Describe("Versions API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			Context("when enabling the resource succeeds", func() {
@@ -370,7 +370,7 @@ var _ = Describe("Versions API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -397,7 +397,7 @@ var _ = Describe("Versions API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			It("looks up the given version ID", func() {
@@ -515,7 +515,7 @@ var _ = Describe("Versions API", func() {
 		Context("when not authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(false)
-				jwtValidator.GetTeamReturns("", false, false)
+				jwtValidator.GetTeamsReturns([]string{}, false, false)
 			})
 
 			Context("and the pipeline is private", func() {
@@ -542,7 +542,7 @@ var _ = Describe("Versions API", func() {
 		Context("when authorized", func() {
 			BeforeEach(func() {
 				jwtValidator.IsAuthenticatedReturns(true)
-				jwtValidator.GetTeamReturns("a-team", true, true)
+				jwtValidator.GetTeamsReturns([]string{"a-team"}, true, true)
 			})
 
 			It("looks up the given version ID", func() {

@@ -40,11 +40,19 @@ func (s *Server) ListBuilds(w http.ResponseWriter, r *http.Request) {
 	var builds []db.Build
 	var pagination db.Pagination
 
-	authTeam, authTeamFound := auth.GetTeam(r)
-	if authTeamFound {
+	teamName := r.FormValue(":team_name")
+
+
+	user.GetTeam(teamName)
+
+	authorizer, authorizerFound := auth.GetAuthorizer(r)
+	if authorizerFound {
+
+		if authorizer.IsAuthorized(teamName) {
+
 		var team db.Team
 		var found bool
-		team, found, err = s.teamFactory.FindTeam(authTeam.Name())
+		team, found, err = s.teamFactory.FindTeam(teamName)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

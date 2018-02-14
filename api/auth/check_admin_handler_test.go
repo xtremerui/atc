@@ -80,7 +80,7 @@ var _ = Describe("CheckAdminHandler", func() {
 
 			Context("when is admin", func() {
 				BeforeEach(func() {
-					fakeValidator.GetTeamReturns("team-name", true, true)
+					fakeValidator.GetTeamsReturns([]string{"team-name"}, true, true)
 				})
 
 				It("returns 200 OK", func() {

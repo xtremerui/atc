@@ -20,18 +20,31 @@ type FakeTokenValidator struct {
 	isAuthenticatedReturnsOnCall map[int]struct {
 		result1 bool
 	}
-	GetTeamStub        func(r *http.Request) (string, bool, bool)
-	getTeamMutex       sync.RWMutex
-	getTeamArgsForCall []struct {
+	GetUserIdStub        func(r *http.Request) (string, bool)
+	getUserIdMutex       sync.RWMutex
+	getUserIdArgsForCall []struct {
 		r *http.Request
 	}
-	getTeamReturns struct {
+	getUserIdReturns struct {
 		result1 string
+		result2 bool
+	}
+	getUserIdReturnsOnCall map[int]struct {
+		result1 string
+		result2 bool
+	}
+	GetTeamsStub        func(r *http.Request) ([]string, bool, bool)
+	getTeamsMutex       sync.RWMutex
+	getTeamsArgsForCall []struct {
+		r *http.Request
+	}
+	getTeamsReturns struct {
+		result1 []string
 		result2 bool
 		result3 bool
 	}
-	getTeamReturnsOnCall map[int]struct {
-		result1 string
+	getTeamsReturnsOnCall map[int]struct {
+		result1 []string
 		result2 bool
 		result3 bool
 	}
@@ -113,55 +126,106 @@ func (fake *FakeTokenValidator) IsAuthenticatedReturnsOnCall(i int, result1 bool
 	}{result1}
 }
 
-func (fake *FakeTokenValidator) GetTeam(r *http.Request) (string, bool, bool) {
-	fake.getTeamMutex.Lock()
-	ret, specificReturn := fake.getTeamReturnsOnCall[len(fake.getTeamArgsForCall)]
-	fake.getTeamArgsForCall = append(fake.getTeamArgsForCall, struct {
+func (fake *FakeTokenValidator) GetUserId(r *http.Request) (string, bool) {
+	fake.getUserIdMutex.Lock()
+	ret, specificReturn := fake.getUserIdReturnsOnCall[len(fake.getUserIdArgsForCall)]
+	fake.getUserIdArgsForCall = append(fake.getUserIdArgsForCall, struct {
 		r *http.Request
 	}{r})
-	fake.recordInvocation("GetTeam", []interface{}{r})
-	fake.getTeamMutex.Unlock()
-	if fake.GetTeamStub != nil {
-		return fake.GetTeamStub(r)
+	fake.recordInvocation("GetUserId", []interface{}{r})
+	fake.getUserIdMutex.Unlock()
+	if fake.GetUserIdStub != nil {
+		return fake.GetUserIdStub(r)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.getUserIdReturns.result1, fake.getUserIdReturns.result2
+}
+
+func (fake *FakeTokenValidator) GetUserIdCallCount() int {
+	fake.getUserIdMutex.RLock()
+	defer fake.getUserIdMutex.RUnlock()
+	return len(fake.getUserIdArgsForCall)
+}
+
+func (fake *FakeTokenValidator) GetUserIdArgsForCall(i int) *http.Request {
+	fake.getUserIdMutex.RLock()
+	defer fake.getUserIdMutex.RUnlock()
+	return fake.getUserIdArgsForCall[i].r
+}
+
+func (fake *FakeTokenValidator) GetUserIdReturns(result1 string, result2 bool) {
+	fake.GetUserIdStub = nil
+	fake.getUserIdReturns = struct {
+		result1 string
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *FakeTokenValidator) GetUserIdReturnsOnCall(i int, result1 string, result2 bool) {
+	fake.GetUserIdStub = nil
+	if fake.getUserIdReturnsOnCall == nil {
+		fake.getUserIdReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 bool
+		})
+	}
+	fake.getUserIdReturnsOnCall[i] = struct {
+		result1 string
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *FakeTokenValidator) GetTeams(r *http.Request) ([]string, bool, bool) {
+	fake.getTeamsMutex.Lock()
+	ret, specificReturn := fake.getTeamsReturnsOnCall[len(fake.getTeamsArgsForCall)]
+	fake.getTeamsArgsForCall = append(fake.getTeamsArgsForCall, struct {
+		r *http.Request
+	}{r})
+	fake.recordInvocation("GetTeams", []interface{}{r})
+	fake.getTeamsMutex.Unlock()
+	if fake.GetTeamsStub != nil {
+		return fake.GetTeamsStub(r)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2, ret.result3
 	}
-	return fake.getTeamReturns.result1, fake.getTeamReturns.result2, fake.getTeamReturns.result3
+	return fake.getTeamsReturns.result1, fake.getTeamsReturns.result2, fake.getTeamsReturns.result3
 }
 
-func (fake *FakeTokenValidator) GetTeamCallCount() int {
-	fake.getTeamMutex.RLock()
-	defer fake.getTeamMutex.RUnlock()
-	return len(fake.getTeamArgsForCall)
+func (fake *FakeTokenValidator) GetTeamsCallCount() int {
+	fake.getTeamsMutex.RLock()
+	defer fake.getTeamsMutex.RUnlock()
+	return len(fake.getTeamsArgsForCall)
 }
 
-func (fake *FakeTokenValidator) GetTeamArgsForCall(i int) *http.Request {
-	fake.getTeamMutex.RLock()
-	defer fake.getTeamMutex.RUnlock()
-	return fake.getTeamArgsForCall[i].r
+func (fake *FakeTokenValidator) GetTeamsArgsForCall(i int) *http.Request {
+	fake.getTeamsMutex.RLock()
+	defer fake.getTeamsMutex.RUnlock()
+	return fake.getTeamsArgsForCall[i].r
 }
 
-func (fake *FakeTokenValidator) GetTeamReturns(result1 string, result2 bool, result3 bool) {
-	fake.GetTeamStub = nil
-	fake.getTeamReturns = struct {
-		result1 string
+func (fake *FakeTokenValidator) GetTeamsReturns(result1 []string, result2 bool, result3 bool) {
+	fake.GetTeamsStub = nil
+	fake.getTeamsReturns = struct {
+		result1 []string
 		result2 bool
 		result3 bool
 	}{result1, result2, result3}
 }
 
-func (fake *FakeTokenValidator) GetTeamReturnsOnCall(i int, result1 string, result2 bool, result3 bool) {
-	fake.GetTeamStub = nil
-	if fake.getTeamReturnsOnCall == nil {
-		fake.getTeamReturnsOnCall = make(map[int]struct {
-			result1 string
+func (fake *FakeTokenValidator) GetTeamsReturnsOnCall(i int, result1 []string, result2 bool, result3 bool) {
+	fake.GetTeamsStub = nil
+	if fake.getTeamsReturnsOnCall == nil {
+		fake.getTeamsReturnsOnCall = make(map[int]struct {
+			result1 []string
 			result2 bool
 			result3 bool
 		})
 	}
-	fake.getTeamReturnsOnCall[i] = struct {
-		result1 string
+	fake.getTeamsReturnsOnCall[i] = struct {
+		result1 []string
 		result2 bool
 		result3 bool
 	}{result1, result2, result3}
@@ -274,8 +338,10 @@ func (fake *FakeTokenValidator) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.isAuthenticatedMutex.RLock()
 	defer fake.isAuthenticatedMutex.RUnlock()
-	fake.getTeamMutex.RLock()
-	defer fake.getTeamMutex.RUnlock()
+	fake.getUserIdMutex.RLock()
+	defer fake.getUserIdMutex.RUnlock()
+	fake.getTeamsMutex.RLock()
+	defer fake.getTeamsMutex.RUnlock()
 	fake.getSystemMutex.RLock()
 	defer fake.getSystemMutex.RUnlock()
 	fake.getCSRFTokenMutex.RLock()
