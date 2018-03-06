@@ -1,12 +1,11 @@
 package exec
 
 import (
-	"os"
+	"context"
 	"time"
 
 	"code.cloudfoundry.org/clock"
 	"github.com/concourse/atc/worker"
-	"github.com/tedsuo/ifrit"
 )
 
 // TimeoutStep applies a fixed timeout to a step's Run.
@@ -45,44 +44,16 @@ func (ts TimeoutStep) Using(repo *worker.ArtifactRepository) Step {
 // the nested step's error).
 //
 // The result of the nested step's Run is returned.
-func (ts *TimeoutStep) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
+func (ts *TimeoutStep) Run(ctx context.Context) error {
 	parsedDuration, err := time.ParseDuration(ts.duration)
 	if err != nil {
 		return err
 	}
 
-	timer := ts.clock.NewTimer(parsedDuration)
+	timeoutCtx, cancel := context.WithTimeout(ctx, parsedDuration)
+	defer cancel()
 
-	runProcess := ifrit.Invoke(ts.runStep)
-
-	close(ready)
-
-	var runErr error
-	var sig os.Signal
-
-dance:
-	for {
-		select {
-		case runErr = <-runProcess.Wait():
-			break dance
-		case <-timer.C():
-			ts.timedOut = true
-			runProcess.Signal(os.Interrupt)
-		case sig = <-signals:
-			runProcess.Signal(sig)
-		}
-	}
-
-	if ts.timedOut {
-		// swallow interrupted error
-		return nil
-	}
-
-	if runErr != nil {
-		return runErr
-	}
-
-	return nil
+	return ts.runStep.Run(timeoutCtx)
 }
 
 // Succeeded is true if the nested step completed successfully

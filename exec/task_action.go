@@ -2,10 +2,10 @@ package exec
 
 import (
 	"archive/tar"
+	"context"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -162,12 +162,9 @@ func NewTaskAction(
 // task's entire working directory is registered as an ArtifactSource under the
 // name of the task.
 func (action *TaskAction) Run(
+	ctx context.Context,
 	logger lager.Logger,
 	repository *worker.ArtifactRepository,
-
-	// TODO: consider passing these as context
-	signals <-chan os.Signal,
-	ready chan<- struct{},
 ) error {
 	config, err := action.configSource.GetTaskConfig()
 	if err != nil {

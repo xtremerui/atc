@@ -1,7 +1,7 @@
 package exec
 
 import (
-	"os"
+	"context"
 
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/atc"
@@ -78,12 +78,9 @@ func NewPutAction(
 // The resource's put script is then invoked. The PutStep is ready as soon as
 // the resource's script starts, and signals will be forwarded to the script.
 func (action *PutAction) Run(
+	ctx context.Context,
 	logger lager.Logger,
 	repository *worker.ArtifactRepository,
-
-	// TODO: consider passing these as context
-	signals <-chan os.Signal,
-	ready chan<- struct{},
 ) error {
 	containerSpec := worker.ContainerSpec{
 		ImageSpec: worker.ImageSpec{
@@ -142,6 +139,10 @@ func (action *PutAction) Run(
 		if err, ok := err.(resource.ErrResourceScriptFailed); ok {
 			action.exitStatus = ExitStatus(err.ExitStatus)
 			return nil
+		}
+		if err == resource.ErrAborted {
+			panic("TESTME")
+			return ErrInterrupted
 		}
 		return err
 	}

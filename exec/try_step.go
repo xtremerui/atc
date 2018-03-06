@@ -1,7 +1,7 @@
 package exec
 
 import (
-	"os"
+	"context"
 
 	"github.com/concourse/atc/worker"
 )
@@ -27,11 +27,13 @@ func (ts TryStep) Using(repo *worker.ArtifactRepository) Step {
 
 // Run runs the nested step, and always returns nil, ignoring the nested step's
 // error.
-func (ts *TryStep) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
-	err := ts.runStep.Run(signals, ready)
-	if err == ErrInterrupted {
-		return err
+func (ts *TryStep) Run(ctx context.Context) error {
+	err := ts.runStep.Run(ctx)
+	if ctx.Err() == context.Canceled {
+		// propagate aborts but not timeouts
+		return ctx.Err()
 	}
+
 	return nil
 }
 

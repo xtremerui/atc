@@ -2,8 +2,8 @@ package exec
 
 import (
 	"archive/tar"
+	"context"
 	"io"
-	"os"
 
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/atc"
@@ -64,12 +64,9 @@ type GetAction struct {
 // At the end, the resulting ArtifactSource (either from using the cache or
 // fetching the resource) is registered under the step's SourceName.
 func (action *GetAction) Run(
+	ctx context.Context,
 	logger lager.Logger,
 	repository *worker.ArtifactRepository,
-
-	// TODO: consider passing these as context
-	signals <-chan os.Signal,
-	ready chan<- struct{},
 ) error {
 	version, err := action.VersionSource.GetVersion()
 	if err != nil {
