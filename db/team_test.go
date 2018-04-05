@@ -1139,11 +1139,14 @@ var _ = Describe("Team", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			build, err := job.CreateBuild()
+			jjob, err := job.JobCombination()
+			Expect(err).ToNot(HaveOccurred())
+
+			build, err := jjob.CreateBuild()
 			Expect(err).ToNot(HaveOccurred())
 			expectedBuilds = append(expectedBuilds, build)
 
-			secondBuild, err := job.CreateBuild()
+			secondBuild, err := jjob.CreateBuild()
 			Expect(err).ToNot(HaveOccurred())
 			expectedBuilds = append(expectedBuilds, secondBuild)
 
@@ -1151,7 +1154,10 @@ var _ = Describe("Team", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			thirdBuild, err := someOtherJob.CreateBuild()
+			someOtherjjob, err := someOtherJob.JobCombination()
+			Expect(err).ToNot(HaveOccurred())
+
+			thirdBuild, err := someOtherjjob.CreateBuild()
 			Expect(err).ToNot(HaveOccurred())
 			expectedBuilds = append(expectedBuilds, thirdBuild)
 		})
